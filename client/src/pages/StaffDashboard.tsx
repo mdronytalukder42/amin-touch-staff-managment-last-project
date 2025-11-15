@@ -24,12 +24,12 @@ export default function StaffDashboard() {
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
 
-  const { data: incomeEntries = [], isLoading: loadingIncome } = trpc.income.list.useQuery({});
-  const { data: ticketEntries = [], isLoading: loadingTickets } = trpc.ticket.list.useQuery({});
+  const { data: incomeEntries = [], isLoading: loadingIncome } = trpc.income.getMy.useQuery();
+  const { data: ticketEntries = [], isLoading: loadingTickets } = trpc.ticket.getMy.useQuery();
 
   const createIncomeMutation = trpc.income.create.useMutation({
     onSuccess: () => {
-      utils.income.list.invalidate();
+      utils.income.getMy.invalidate();
       toast.success('Income entry added successfully');
       setIncomeDialogOpen(false);
     },
@@ -40,7 +40,7 @@ export default function StaffDashboard() {
 
   const createTicketMutation = trpc.ticket.create.useMutation({
     onSuccess: () => {
-      utils.ticket.list.invalidate();
+      utils.ticket.getMy.invalidate();
       toast.success('Ticket entry added successfully');
       setTicketDialogOpen(false);
     },

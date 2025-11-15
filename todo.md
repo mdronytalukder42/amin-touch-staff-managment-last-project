@@ -53,3 +53,7 @@
 - [x] Fix login - users cannot login, not redirecting to dashboard after successful authentication
 - [x] Implemented session-based authentication with database sessions table
 - [x] Login now successfully redirects to appropriate dashboard (Admin/Staff)
+
+## New Bug Report
+- [x] Fix StaffDashboard tRPC procedure calls - income.list and ticket.list not found
+- [x] Update StaffDashboard to use income.getMy and ticket.getMy instead
