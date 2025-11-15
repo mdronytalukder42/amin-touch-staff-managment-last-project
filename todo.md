@@ -42,3 +42,9 @@
 - [x] Create custom login system (separate Admin/Staff login)
 - [x] Store usernames and passwords in database
 - [x] Implement authentication without OAuth
+
+## Bug Fixes & New Requirements
+- [x] Fix login authentication - context not working properly
+- [x] Change currency symbol from ₹ to QR (Qatari Riyal)
+- [x] Restore Home page with "Login to System" button
+- [x] Fix routing - Home page should be default, Login page accessible via button

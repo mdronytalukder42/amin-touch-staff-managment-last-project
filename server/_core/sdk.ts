@@ -260,6 +260,22 @@ class SDKServer {
     // Regular authentication flow
     const cookies = this.parseCookies(req.headers.cookie);
     const sessionCookie = cookies.get(COOKIE_NAME);
+    
+    // Try to verify as custom JWT first (for local auth)
+    try {
+      const jwt = require('jsonwebtoken');
+      const decoded = jwt.verify(sessionCookie, ENV.jwtSecret) as any;
+      if (decoded && decoded.id) {
+        // This is a custom JWT from local login
+        const user = await db.getUserById(decoded.id);
+        if (user) {
+          return user;
+        }
+      }
+    } catch (error) {
+      // Not a custom JWT, continue with OAuth flow
+    }
+    
     const session = await this.verifySession(sessionCookie);
 
     if (!session) {

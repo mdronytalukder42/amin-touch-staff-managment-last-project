@@ -98,7 +98,7 @@ export default function AdminDashboard() {
               <DollarSign className="h-5 w-5 text-green-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">₹{stats.totalIncome.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-green-600">QR {stats.totalIncome.toLocaleString()}</div>
               <p className="text-xs text-gray-500 mt-1">Net income balance</p>
             </CardContent>
           </Card>
@@ -109,7 +109,7 @@ export default function AdminDashboard() {
               <TrendingUp className="h-5 w-5 text-blue-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">₹{stats.totalOTP.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-blue-600">QR {stats.totalOTP.toLocaleString()}</div>
               <p className="text-xs text-gray-500 mt-1">Net OTP balance</p>
             </CardContent>
           </Card>
@@ -181,7 +181,7 @@ export default function AdminDashboard() {
                               </Badge>
                             </TableCell>
                             <TableCell className={entry.type.includes('Add') ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                              {entry.type.includes('Add') ? '+' : '-'}₹{entry.amount.toLocaleString()}
+                              {entry.type.includes('Add') ? '+' : '-'}QR {entry.amount.toLocaleString()}
                             </TableCell>
                             <TableCell className="max-w-xs truncate">{entry.description}</TableCell>
                             <TableCell>{entry.recipient || '-'}</TableCell>
