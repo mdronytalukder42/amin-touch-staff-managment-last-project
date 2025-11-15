@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, incomeEntries, InsertIncomeEntry, IncomeEntry, ticketEntries, InsertTicketEntry, TicketEntry } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,111 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Income Entry helpers
+export async function createIncomeEntry(entry: InsertIncomeEntry): Promise<IncomeEntry> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(incomeEntries).values(entry);
+  const insertedId = Number(result[0].insertId);
+  
+  const inserted = await db.select().from(incomeEntries).where(eq(incomeEntries.id, insertedId)).limit(1);
+  return inserted[0];
+}
+
+export async function getIncomeEntries(userId?: number, startDate?: string, endDate?: string): Promise<IncomeEntry[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  let conditions = [];
+  if (userId) {
+    conditions.push(eq(incomeEntries.userId, userId));
+  }
+  if (startDate) {
+    conditions.push(gte(incomeEntries.date, startDate));
+  }
+  if (endDate) {
+    conditions.push(lte(incomeEntries.date, endDate));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  
+  return await db.select().from(incomeEntries)
+    .where(whereClause)
+    .orderBy(desc(incomeEntries.date), desc(incomeEntries.time));
+}
+
+export async function updateIncomeEntry(id: number, updates: Partial<InsertIncomeEntry>): Promise<IncomeEntry | undefined> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(incomeEntries).set(updates).where(eq(incomeEntries.id, id));
+  
+  const updated = await db.select().from(incomeEntries).where(eq(incomeEntries.id, id)).limit(1);
+  return updated[0];
+}
+
+export async function deleteIncomeEntry(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.delete(incomeEntries).where(eq(incomeEntries.id, id));
+}
+
+// Ticket Entry helpers
+export async function createTicketEntry(entry: InsertTicketEntry): Promise<TicketEntry> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(ticketEntries).values(entry);
+  const insertedId = Number(result[0].insertId);
+  
+  const inserted = await db.select().from(ticketEntries).where(eq(ticketEntries.id, insertedId)).limit(1);
+  return inserted[0];
+}
+
+export async function getTicketEntries(userId?: number, startDate?: string, endDate?: string): Promise<TicketEntry[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  let conditions = [];
+  if (userId) {
+    conditions.push(eq(ticketEntries.userId, userId));
+  }
+  if (startDate) {
+    conditions.push(gte(ticketEntries.issueDate, startDate));
+  }
+  if (endDate) {
+    conditions.push(lte(ticketEntries.issueDate, endDate));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+  
+  return await db.select().from(ticketEntries)
+    .where(whereClause)
+    .orderBy(desc(ticketEntries.issueDate));
+}
+
+export async function updateTicketEntry(id: number, updates: Partial<InsertTicketEntry>): Promise<TicketEntry | undefined> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(ticketEntries).set(updates).where(eq(ticketEntries.id, id));
+  
+  const updated = await db.select().from(ticketEntries).where(eq(ticketEntries.id, id)).limit(1);
+  return updated[0];
+}
+
+export async function deleteTicketEntry(id: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.delete(ticketEntries).where(eq(ticketEntries.id, id));
+}
+
+export async function getAllUsers() {
+  const db = await getDb();
+  if (!db) return [];
+
+  return await db.select().from(users).orderBy(users.name);
+}
