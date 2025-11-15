@@ -5,6 +5,7 @@ import { Route, Switch, Redirect } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import Home from "./pages/Home";
+import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
 import StaffDashboard from "./pages/StaffDashboard";
 import { useAuth } from "./_core/hooks/useAuth";
@@ -41,7 +42,8 @@ function ProtectedRoute({
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={Login} />
+      <Route path="/home" component={Home} />
       <Route path="/admin">
         {() => <ProtectedRoute component={AdminDashboard} requiredRole="admin" />}
       </Route>

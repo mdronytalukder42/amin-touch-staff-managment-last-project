@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO users (username, password, name, role, email, loginMethod) VALUES\n('admin9197', 'Admin9197', 'AL AMIN', 'admin', 'admin@amintouch.com', 'local'),\n('ronytalukder', '@jead2016R', 'RONY TALUKDER', 'user', 'rony@amintouch.com', 'local'),\n('mahir', 'Mahir3', 'MAHIR', 'user', 'mahir@amintouch.com', 'local'),\n('sakiladnan', 'Sakiladnan', 'SAKIL ADNAN', 'user', 'sakil@amintouch.com', 'local')\nON DUPLICATE KEY UPDATE name=VALUES(name)",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 35BhLhA3hZtdmuf.root --database 72EUuoiH5QQgxQrFsw4QKi --execute INSERT INTO users (username, password, name, role, email, loginMethod) VALUES\n('admin9197', 'Admin9197', 'AL AMIN', 'admin', 'admin@amintouch.com', 'local'),\n('ronytalukder', '@jead2016R', 'RONY TALUKDER', 'user', 'rony@amintouch.com', 'local'),\n('mahir', 'Mahir3', 'MAHIR', 'user', 'mahir@amintouch.com', 'local'),\n('sakiladnan', 'Sakiladnan', 'SAKIL ADNAN', 'user', 'sakil@amintouch.com', 'local')\nON DUPLICATE KEY UPDATE name=VALUES(name)",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1688
+}

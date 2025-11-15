@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { APP_TITLE } from "@/const";
 import { LogOut, Plus, DollarSign, Ticket as TicketIcon, TrendingUp } from "lucide-react";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { toast } from "sonner";
 
 export default function StaffDashboard() {
@@ -134,6 +135,7 @@ export default function StaffDashboard() {
               <p className="font-medium">{user?.name}</p>
               <p className="text-xs text-gray-600">Staff Member</p>
             </div>
+            <ChangePasswordModal />
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout

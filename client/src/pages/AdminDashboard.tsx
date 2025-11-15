@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { APP_TITLE } from "@/const";
 import { LogOut, DollarSign, Ticket, Users, TrendingUp, TrendingDown } from "lucide-react";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { toast } from "sonner";
 
 export default function AdminDashboard() {
@@ -79,6 +80,7 @@ export default function AdminDashboard() {
               <p className="font-medium">{user?.name}</p>
               <p className="text-xs text-gray-600">Administrator</p>
             </div>
+            <ChangePasswordModal />
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout

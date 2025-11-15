@@ -5,6 +5,8 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { TRPCError } from "@trpc/server";
+import jwt from "jsonwebtoken";
+import { ENV } from "./_core/env";
 
 // Admin-only procedure
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -21,6 +23,57 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    
+    // Custom login procedure
+    login: publicProcedure
+      .input(z.object({
+        username: z.string(),
+        password: z.string(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const user = await db.getUserByUsername(input.username);
+        
+        if (!user || user.password !== input.password) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Invalid username or password',
+          });
+        }
+
+        // Update last signed in
+        await db.updateUserLastSignIn(user.id);
+
+        // Create JWT token
+        const token = jwt.sign(
+          { 
+            id: user.id,
+            openId: user.openId || `local_${user.id}`,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          },
+          ENV.jwtSecret,
+          { expiresIn: '7d' }
+        );
+
+        // Set cookie
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, token, {
+          ...cookieOptions,
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+
+        return {
+          success: true,
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          },
+        };
+      }),
+
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -28,6 +81,27 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+
+    // Change password
+    changePassword: protectedProcedure
+      .input(z.object({
+        currentPassword: z.string(),
+        newPassword: z.string().min(6),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const user = await db.getUserById(ctx.user.id);
+        
+        if (!user || user.password !== input.currentPassword) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Current password is incorrect',
+          });
+        }
+
+        await db.updateUserPassword(user.id, input.newPassword);
+
+        return { success: true };
+      }),
   }),
 
   // Income Entry operations

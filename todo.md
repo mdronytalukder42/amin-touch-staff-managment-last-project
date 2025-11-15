@@ -33,3 +33,12 @@
 - [x] Data tables with filtering
 - [ ] Charts for data visualization (Statistics implemented)
 - [x] Notification toast component
+
+## New Features (User Requested)
+- [x] Setup demo user accounts (Admin: AL AMIN, Staff: RONY, MAHIR, SAKIL)
+- [x] Add password change functionality for all users
+- [x] Update company logo to AMIN TOUCH logo
+- [x] Add background image with opacity to login page
+- [x] Create custom login system (separate Admin/Staff login)
+- [x] Store usernames and passwords in database
+- [x] Implement authentication without OAuth
