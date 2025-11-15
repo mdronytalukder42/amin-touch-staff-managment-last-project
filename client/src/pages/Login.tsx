@@ -20,12 +20,14 @@ export default function Login() {
   const loginMutation = trpc.auth.login.useMutation({
     onSuccess: (data) => {
       toast.success('Login successful!');
-      // Redirect based on role
-      if (data.user.role === 'admin') {
-        setLocation('/admin');
-      } else {
-        setLocation('/staff');
-      }
+      // Hard redirect to ensure cookie is properly set
+      setTimeout(() => {
+        if (data.user.role === 'admin') {
+          window.location.href = '/admin';
+        } else {
+          window.location.href = '/staff';
+        }
+      }, 500);
     },
     onError: (error) => {
       toast.error(error.message || 'Login failed');

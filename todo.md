@@ -48,3 +48,8 @@
 - [x] Change currency symbol from ₹ to QR (Qatari Riyal)
 - [x] Restore Home page with "Login to System" button
 - [x] Fix routing - Home page should be default, Login page accessible via button
+
+## Critical Bug
+- [x] Fix login - users cannot login, not redirecting to dashboard after successful authentication
+- [x] Implemented session-based authentication with database sessions table
+- [x] Login now successfully redirects to appropriate dashboard (Admin/Staff)

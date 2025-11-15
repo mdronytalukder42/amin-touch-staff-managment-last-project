@@ -77,3 +77,16 @@ export const ticketEntries = mysqlTable("ticket_entries", {
 
 export type TicketEntry = typeof ticketEntries.$inferSelect;
 export type InsertTicketEntry = typeof ticketEntries.$inferInsert;
+
+/**
+ * Sessions table for custom authentication
+ */
+export const sessions = mysqlTable("sessions", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  userId: int("userId").notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Session = typeof sessions.$inferSelect;
+export type InsertSession = typeof sessions.$inferInsert;

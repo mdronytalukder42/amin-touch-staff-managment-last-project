@@ -1,6 +1,6 @@
 import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, incomeEntries, InsertIncomeEntry, IncomeEntry, ticketEntries, InsertTicketEntry, TicketEntry } from "../drizzle/schema";
+import { InsertUser, users, incomeEntries, InsertIncomeEntry, IncomeEntry, ticketEntries, InsertTicketEntry, TicketEntry, sessions, InsertSession, Session } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -234,4 +234,136 @@ export async function getAllUsers() {
   if (!db) return [];
 
   return await db.select().from(users).orderBy(users.name);
+}
+
+// Session helpers
+export async function createSession(session: InsertSession): Promise<Session> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.insert(sessions).values(session);
+  
+  const inserted = await db.select().from(sessions).where(eq(sessions.id, session.id)).limit(1);
+  return inserted[0];
+}
+
+export async function getSessionById(id: string): Promise<Session | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(sessions).where(eq(sessions.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  await db.delete(sessions).where(eq(sessions.id, id));
+}
+
+export async function deleteExpiredSessions(): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  await db.delete(sessions).where(lte(sessions.expiresAt, new Date()));
+}
+
+// Additional helper functions for routers
+export async function getAllIncomeEntries(): Promise<IncomeEntry[]> {
+  return await getIncomeEntries();
+}
+
+export async function getIncomeEntriesByUserId(userId: number): Promise<IncomeEntry[]> {
+  return await getIncomeEntries(userId);
+}
+
+export async function getAllTicketEntries(): Promise<TicketEntry[]> {
+  return await getTicketEntries();
+}
+
+export async function getTicketEntriesByUserId(userId: number): Promise<TicketEntry[]> {
+  return await getTicketEntries(userId);
+}
+
+export async function getIncomeStats(userId: number) {
+  const entries = await getIncomeEntries(userId);
+  
+  let totalIncome = 0;
+  let totalExpense = 0;
+  let totalOTP = 0;
+  
+  entries.forEach(entry => {
+    if (entry.type === 'Income Add') {
+      totalIncome += entry.amount;
+    } else if (entry.type === 'Income Minus' || entry.type === 'Income Payment') {
+      totalExpense += entry.amount;
+    } else if (entry.type === 'OTP Add') {
+      totalOTP += entry.amount;
+    } else if (entry.type === 'OTP Minus' || entry.type === 'OTP Payment') {
+      totalOTP -= entry.amount;
+    }
+  });
+  
+  return {
+    totalIncome,
+    totalExpense,
+    totalOTP,
+    netIncome: totalIncome - totalExpense,
+    entryCount: entries.length,
+  };
+}
+
+export async function getAdminIncomeStats() {
+  const entries = await getAllIncomeEntries();
+  
+  let totalIncome = 0;
+  let totalExpense = 0;
+  let totalOTP = 0;
+  
+  entries.forEach(entry => {
+    if (entry.type === 'Income Add') {
+      totalIncome += entry.amount;
+    } else if (entry.type === 'Income Minus' || entry.type === 'Income Payment') {
+      totalExpense += entry.amount;
+    } else if (entry.type === 'OTP Add') {
+      totalOTP += entry.amount;
+    } else if (entry.type === 'OTP Minus' || entry.type === 'OTP Payment') {
+      totalOTP -= entry.amount;
+    }
+  });
+  
+  return {
+    totalIncome,
+    totalExpense,
+    totalOTP,
+    netIncome: totalIncome - totalExpense,
+    entryCount: entries.length,
+  };
+}
+
+export async function getTicketStats(userId: number) {
+  const entries = await getTicketEntries(userId);
+  
+  const stats = {
+    total: entries.length,
+    pending: entries.filter(e => e.status === 'Pending').length,
+    confirmed: entries.filter(e => e.status === 'Confirmed').length,
+    cancelled: entries.filter(e => e.status === 'Cancelled').length,
+  };
+  
+  return stats;
+}
+
+export async function getAdminTicketStats() {
+  const entries = await getAllTicketEntries();
+  
+  const stats = {
+    total: entries.length,
+    pending: entries.filter(e => e.status === 'Pending').length,
+    confirmed: entries.filter(e => e.status === 'Confirmed').length,
+    cancelled: entries.filter(e => e.status === 'Cancelled').length,
+  };
+  
+  return stats;
 }

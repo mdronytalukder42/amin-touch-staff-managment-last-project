@@ -261,28 +261,28 @@ class SDKServer {
     const cookies = this.parseCookies(req.headers.cookie);
     const sessionCookie = cookies.get(COOKIE_NAME);
     
-    // Try to verify as custom JWT first (for local auth)
-    try {
-      const jwt = require('jsonwebtoken');
-      const decoded = jwt.verify(sessionCookie, ENV.jwtSecret) as any;
-      if (decoded && decoded.id) {
-        // This is a custom JWT from local login
-        const user = await db.getUserById(decoded.id);
-        if (user) {
-          return user;
-        }
-      }
-    } catch (error) {
-      // Not a custom JWT, continue with OAuth flow
+    if (!sessionCookie) {
+      throw ForbiddenError("No session cookie");
     }
     
-    const session = await this.verifySession(sessionCookie);
+    // Try to verify as session ID first (for local auth)
+    const session = await db.getSessionById(sessionCookie);
+    if (session && session.expiresAt > new Date()) {
+      // Valid session found
+      const user = await db.getUserById(session.userId);
+      if (user) {
+        return user;
+      }
+    }
+    
+    // Try OAuth session
+    const oauthSession = await this.verifySession(sessionCookie);
 
-    if (!session) {
+    if (!oauthSession) {
       throw ForbiddenError("Invalid session cookie");
     }
 
-    const sessionUserId = session.openId;
+    const sessionUserId = oauthSession.openId;
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 

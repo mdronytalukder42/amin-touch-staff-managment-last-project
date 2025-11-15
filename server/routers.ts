@@ -5,8 +5,7 @@ import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import * as db from "./db";
 import { TRPCError } from "@trpc/server";
-import jwt from "jsonwebtoken";
-import { ENV } from "./_core/env";
+import { randomBytes } from "crypto";
 
 // Admin-only procedure
 const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
@@ -24,7 +23,7 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     
-    // Custom login procedure
+    // Custom login procedure with session-based auth
     login: publicProcedure
       .input(z.object({
         username: z.string(),
@@ -43,22 +42,19 @@ export const appRouter = router({
         // Update last signed in
         await db.updateUserLastSignIn(user.id);
 
-        // Create JWT token
-        const token = jwt.sign(
-          { 
-            id: user.id,
-            openId: user.openId || `local_${user.id}`,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-          },
-          ENV.jwtSecret,
-          { expiresIn: '7d' }
-        );
+        // Create session
+        const sessionId = randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+        
+        await db.createSession({
+          id: sessionId,
+          userId: user.id,
+          expiresAt,
+        });
 
-        // Set cookie
+        // Set cookie with session ID
         const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, token, {
+        ctx.res.cookie(COOKIE_NAME, sessionId, {
           ...cookieOptions,
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
@@ -74,7 +70,19 @@ export const appRouter = router({
         };
       }),
 
-    logout: publicProcedure.mutation(({ ctx }) => {
+    logout: publicProcedure.mutation(async ({ ctx }) => {
+      // Delete session from database
+      const cookies = ctx.req.headers.cookie?.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      const sessionId = cookies?.[COOKIE_NAME];
+      if (sessionId) {
+        await db.deleteSession(sessionId);
+      }
+      
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return {
@@ -100,85 +108,75 @@ export const appRouter = router({
 
         await db.updateUserPassword(user.id, input.newPassword);
 
-        return { success: true };
+        return {
+          success: true,
+          message: 'Password changed successfully',
+        };
       }),
   }),
 
-  // Income Entry operations
+  // Income entries router
   income: router({
+    // Get all income entries (admin only)
+    getAll: adminProcedure.query(async () => {
+      return await db.getAllIncomeEntries();
+    }),
+
+    // Get user's own income entries
+    getMy: protectedProcedure.query(async ({ ctx }) => {
+      return await db.getIncomeEntriesByUserId(ctx.user.id);
+    }),
+
+    // Create income entry
     create: protectedProcedure
       .input(z.object({
         date: z.string(),
         time: z.string(),
-        type: z.enum(["Income Add", "Income Minus", "Income Payment", "OTP Add", "OTP Minus", "OTP Payment"]),
-        amount: z.number(),
+        type: z.enum([
+          "Income Add",
+          "Income Minus",
+          "Income Payment",
+          "OTP Add",
+          "OTP Minus",
+          "OTP Payment"
+        ]),
+        amount: z.number().int(),
         description: z.string(),
         recipient: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
-        return await db.createIncomeEntry({
+        const entry = await db.createIncomeEntry({
+          ...input,
           userId: ctx.user.id,
           userName: ctx.user.name || 'Unknown',
-          ...input,
         });
+        return entry;
       }),
 
-    list: protectedProcedure
-      .input(z.object({
-        userId: z.number().optional(),
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-      }).optional())
-      .query(async ({ ctx, input }) => {
-        // Staff can only see their own entries
-        const userId = ctx.user.role === 'admin' ? input?.userId : ctx.user.id;
-        return await db.getIncomeEntries(userId, input?.startDate, input?.endDate);
-      }),
+    // Get statistics
+    getStats: protectedProcedure.query(async ({ ctx }) => {
+      return await db.getIncomeStats(ctx.user.id);
+    }),
 
-    update: protectedProcedure
-      .input(z.object({
-        id: z.number(),
-        date: z.string().optional(),
-        time: z.string().optional(),
-        type: z.enum(["Income Add", "Income Minus", "Income Payment", "OTP Add", "OTP Minus", "OTP Payment"]).optional(),
-        amount: z.number().optional(),
-        description: z.string().optional(),
-        recipient: z.string().optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const { id, ...updates } = input;
-        
-        // Check ownership for non-admin users
-        if (ctx.user.role !== 'admin') {
-          const entries = await db.getIncomeEntries(ctx.user.id);
-          const entry = entries.find(e => e.id === id);
-          if (!entry) {
-            throw new TRPCError({ code: 'FORBIDDEN', message: 'Not authorized' });
-          }
-        }
-        
-        return await db.updateIncomeEntry(id, updates);
-      }),
-
-    delete: protectedProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        // Check ownership for non-admin users
-        if (ctx.user.role !== 'admin') {
-          const entries = await db.getIncomeEntries(ctx.user.id);
-          const entry = entries.find(e => e.id === input.id);
-          if (!entry) {
-            throw new TRPCError({ code: 'FORBIDDEN', message: 'Not authorized' });
-          }
-        }
-        
-        await db.deleteIncomeEntry(input.id);
-        return { success: true };
-      }),
+    // Get admin statistics (all users)
+    getAdminStats: adminProcedure.query(async () => {
+      return await db.getAdminIncomeStats();
+    }),
   }),
 
-  // Ticket Entry operations
+  // Ticket entries router
   ticket: router({
+    // Get all ticket entries (admin only)
+    getAll: adminProcedure.query(async () => {
+      return await db.getAllTicketEntries();
+    }),
+
+    // Get user's own ticket entries
+    getMy: protectedProcedure.query(async ({ ctx }) => {
+      return await db.getTicketEntriesByUserId(ctx.user.id);
+    }),
+
+    // Create ticket entry
     create: protectedProcedure
       .input(z.object({
         issueDate: z.string(),
@@ -196,85 +194,25 @@ export const appRouter = router({
         qrNumber: z.string().optional(),
         ticketCopyUrl: z.string().optional(),
         ticketCopyFileName: z.string().optional(),
-        status: z.enum(["Pending", "Confirmed", "Cancelled"]).optional(),
+        status: z.enum(["Pending", "Confirmed", "Cancelled"]).default("Pending"),
       }))
       .mutation(async ({ ctx, input }) => {
-        return await db.createTicketEntry({
+        const entry = await db.createTicketEntry({
+          ...input,
           userId: ctx.user.id,
           userName: ctx.user.name || 'Unknown',
-          status: input.status || "Pending",
-          ...input,
         });
+        return entry;
       }),
 
-    list: protectedProcedure
-      .input(z.object({
-        userId: z.number().optional(),
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-      }).optional())
-      .query(async ({ ctx, input }) => {
-        // Staff can only see their own entries
-        const userId = ctx.user.role === 'admin' ? input?.userId : ctx.user.id;
-        return await db.getTicketEntries(userId, input?.startDate, input?.endDate);
-      }),
+    // Get statistics
+    getStats: protectedProcedure.query(async ({ ctx }) => {
+      return await db.getTicketStats(ctx.user.id);
+    }),
 
-    update: protectedProcedure
-      .input(z.object({
-        id: z.number(),
-        issueDate: z.string().optional(),
-        passengerName: z.string().optional(),
-        pnr: z.string().optional(),
-        tripType: z.enum(["1 Way", "Return"]).optional(),
-        flightName: z.string().optional(),
-        from: z.string().optional(),
-        to: z.string().optional(),
-        departureDate: z.string().optional(),
-        arrivalDate: z.string().optional(),
-        returnDate: z.string().optional(),
-        fromIssuer: z.string().optional(),
-        bdNumber: z.string().optional(),
-        qrNumber: z.string().optional(),
-        ticketCopyUrl: z.string().optional(),
-        ticketCopyFileName: z.string().optional(),
-        status: z.enum(["Pending", "Confirmed", "Cancelled"]).optional(),
-      }))
-      .mutation(async ({ ctx, input }) => {
-        const { id, ...updates } = input;
-        
-        // Check ownership for non-admin users
-        if (ctx.user.role !== 'admin') {
-          const entries = await db.getTicketEntries(ctx.user.id);
-          const entry = entries.find(e => e.id === id);
-          if (!entry) {
-            throw new TRPCError({ code: 'FORBIDDEN', message: 'Not authorized' });
-          }
-        }
-        
-        return await db.updateTicketEntry(id, updates);
-      }),
-
-    delete: protectedProcedure
-      .input(z.object({ id: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        // Check ownership for non-admin users
-        if (ctx.user.role !== 'admin') {
-          const entries = await db.getTicketEntries(ctx.user.id);
-          const entry = entries.find(e => e.id === input.id);
-          if (!entry) {
-            throw new TRPCError({ code: 'FORBIDDEN', message: 'Not authorized' });
-          }
-        }
-        
-        await db.deleteTicketEntry(input.id);
-        return { success: true };
-      }),
-  }),
-
-  // User management (admin only)
-  users: router({
-    list: adminProcedure.query(async () => {
-      return await db.getAllUsers();
+    // Get admin statistics (all users)
+    getAdminStats: adminProcedure.query(async () => {
+      return await db.getAdminTicketStats();
     }),
   }),
 });
