@@ -41,6 +41,7 @@ export const incomeEntries = mysqlTable("income_entries", {
   amount: int("amount").notNull(),
   description: text("description").notNull(),
   recipient: varchar("recipient", { length: 255 }),
+  receivedFrom: varchar("receivedFrom", { length: 255 }), // Who gave the money
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -66,6 +67,7 @@ export const ticketEntries = mysqlTable("ticket_entries", {
   arrivalDate: varchar("arrivalDate", { length: 10 }).notNull(),
   returnDate: varchar("returnDate", { length: 10 }),
   fromIssuer: varchar("fromIssuer", { length: 255 }).notNull(),
+  source: varchar("source", { length: 255 }), // Agency or source where ticket was purchased
   bdNumber: varchar("bdNumber", { length: 50 }),
   qrNumber: varchar("qrNumber", { length: 50 }),
   ticketCopyUrl: text("ticketCopyUrl"),

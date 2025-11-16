@@ -143,6 +143,7 @@ export const appRouter = router({
         amount: z.number().int(),
         description: z.string(),
         recipient: z.string().optional(),
+        receivedFrom: z.string().optional(),
       }))
       .mutation(async ({ ctx, input }) => {
         const entry = await db.createIncomeEntry({
@@ -162,6 +163,50 @@ export const appRouter = router({
     getAdminStats: adminProcedure.query(async () => {
       return await db.getAdminIncomeStats();
     }),
+
+    // Update income entry (own entries only)
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        date: z.string(),
+        time: z.string(),
+        type: z.enum([
+          "Income Add",
+          "Income Minus",
+          "Income Payment",
+          "OTP Add",
+          "OTP Minus",
+          "OTP Payment"
+        ]),
+        amount: z.number().int(),
+        description: z.string(),
+        recipient: z.string().optional(),
+        receivedFrom: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const entry = await db.getIncomeEntryById(input.id);
+        if (!entry || entry.userId !== ctx.user.id) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Cannot update this entry',
+          });
+        }
+        return await db.updateIncomeEntry(input.id, input);
+      }),
+
+    // Delete income entry (own entries only)
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const entry = await db.getIncomeEntryById(input.id);
+        if (!entry || entry.userId !== ctx.user.id) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Cannot delete this entry',
+          });
+        }
+        return await db.deleteIncomeEntry(input.id);
+      }),
   }),
 
   // Ticket entries router
@@ -194,6 +239,7 @@ export const appRouter = router({
         qrNumber: z.string().optional(),
         ticketCopyUrl: z.string().optional(),
         ticketCopyFileName: z.string().optional(),
+        source: z.string().optional(),
         status: z.enum(["Pending", "Confirmed", "Cancelled"]).default("Pending"),
       }))
       .mutation(async ({ ctx, input }) => {
@@ -214,6 +260,82 @@ export const appRouter = router({
     getAdminStats: adminProcedure.query(async () => {
       return await db.getAdminTicketStats();
     }),
+
+    // Search tickets by name or PNR
+    search: protectedProcedure
+      .input(z.object({ query: z.string() }))
+      .query(async ({ ctx, input }) => {
+        if (ctx.user.role === 'admin') {
+          return await db.searchTickets(input.query);
+        } else {
+          return await db.searchTicketsByUser(ctx.user.id, input.query);
+        }
+      }),
+
+    // Update ticket entry (own entries only)
+    update: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+        issueDate: z.string(),
+        passengerName: z.string(),
+        pnr: z.string(),
+        tripType: z.enum(["1 Way", "Return"]),
+        flightName: z.string(),
+        from: z.string(),
+        to: z.string(),
+        departureDate: z.string(),
+        arrivalDate: z.string(),
+        returnDate: z.string().optional(),
+        fromIssuer: z.string(),
+        source: z.string().optional(),
+        bdNumber: z.string().optional(),
+        qrNumber: z.string().optional(),
+        ticketCopyUrl: z.string().optional(),
+        ticketCopyFileName: z.string().optional(),
+        status: z.enum(["Pending", "Confirmed", "Cancelled"]),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const entry = await db.getTicketEntryById(input.id);
+        if (!entry || entry.userId !== ctx.user.id) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Cannot update this entry',
+          });
+        }
+        return await db.updateTicketEntry(input.id, input);
+      }),
+
+    // Delete ticket entry (own entries only)
+    delete: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const entry = await db.getTicketEntryById(input.id);
+        if (!entry || entry.userId !== ctx.user.id) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Cannot delete this entry',
+          });
+        }
+        return await db.deleteTicketEntry(input.id);
+      }),
+
+    // Upload ticket copy file
+    uploadTicketCopy: protectedProcedure
+      .input(z.object({
+        fileName: z.string(),
+        fileData: z.string(), // base64 encoded
+        mimeType: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const { storagePut } = await import('./storage');
+        const buffer = Buffer.from(input.fileData, 'base64');
+        const fileKey = `ticket-copies/${Date.now()}-${input.fileName}`;
+        const result = await storagePut(fileKey, buffer, input.mimeType);
+        return {
+          url: result.url,
+          fileName: input.fileName,
+        };
+      }),
   }),
 });
 

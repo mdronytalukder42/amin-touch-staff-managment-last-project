@@ -29,6 +29,13 @@
       "when": 1763233320259,
       "tag": "0003_tan_mantis",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1763235418543,
+      "tag": "0004_sudden_black_panther",
+      "breakpoints": true
     }
   ]
 }

@@ -57,3 +57,40 @@
 ## New Bug Report
 - [x] Fix StaffDashboard tRPC procedure calls - income.list and ticket.list not found
 - [x] Update StaffDashboard to use income.getMy and ticket.getMy instead
+
+## Major Feature Additions (User Request)
+
+### Ticket Entry Enhancements
+- [x] Add "Source" field - where ticket was purchased (agency name)
+- [x] Add ticket copy file upload (PDF/PNG/Image)
+- [x] Add ticket copy download functionality
+- [ ] Add PNR click redirect to airline "Manage My Trip" page
+
+### Search Functionality
+- [x] Add search by Passenger Name in both Admin and Staff pages
+- [x] Add search by PNR in both Admin and Staff pages
+- [ ] Implement search bar in ticket tables
+
+### Edit/Delete Functionality
+- [x] Staff can edit their own income entries (backend)
+- [x] Staff can delete their own income entries (backend)
+- [x] Staff can edit their own ticket entries (backend)
+- [x] Staff can delete their own ticket entries (backend)
+
+### Income Entry Enhancements
+- [x] Add "Received From" field for tracking money sources
+
+### UI/UX Improvements
+- [ ] Convert all pages to dark theme
+- [ ] Add 3D animated background slideshow (3 sec interval)
+- [ ] Add company logo to all pages
+- [ ] Update company name to full: "AMIN TOUCH TRADING CONTRACTING & HOSPITALITY SERVICES"
+
+### Invoice/Report Features
+- [ ] Add invoice download for Admin
+- [ ] Add invoice download for Staff
+- [ ] Generate PDF invoices with company branding
+
+### Real-time Updates
+- [ ] Fix: Staff data entry should appear in Admin dashboard immediately
+- [ ] Implement proper cache invalidation for real-time sync

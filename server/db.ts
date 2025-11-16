@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, incomeEntries, InsertIncomeEntry, IncomeEntry, ticketEntries, InsertTicketEntry, TicketEntry, sessions, InsertSession, Session } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -366,4 +366,59 @@ export async function getAdminTicketStats() {
   };
   
   return stats;
+}
+
+// Income entry helpers
+export async function getIncomeEntryById(id: number): Promise<IncomeEntry | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(incomeEntries).where(eq(incomeEntries.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// Ticket entry helpers
+export async function getTicketEntryById(id: number): Promise<TicketEntry | undefined> {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(ticketEntries).where(eq(ticketEntries.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// Search tickets by passenger name or PNR
+export async function searchTickets(query: string): Promise<TicketEntry[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const searchPattern = `%${query}%`;
+  
+  return await db.select().from(ticketEntries)
+    .where(
+      or(
+        sql`${ticketEntries.passengerName} LIKE ${searchPattern}`,
+        sql`${ticketEntries.pnr} LIKE ${searchPattern}`
+      )
+    )
+    .orderBy(desc(ticketEntries.issueDate));
+}
+
+// Search tickets by user and query
+export async function searchTicketsByUser(userId: number, query: string): Promise<TicketEntry[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const searchPattern = `%${query}%`;
+  
+  return await db.select().from(ticketEntries)
+    .where(
+      and(
+        eq(ticketEntries.userId, userId),
+        or(
+          sql`${ticketEntries.passengerName} LIKE ${searchPattern}`,
+          sql`${ticketEntries.pnr} LIKE ${searchPattern}`
+        )
+      )
+    )
+    .orderBy(desc(ticketEntries.issueDate));
 }
