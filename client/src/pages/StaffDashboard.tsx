@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { APP_TITLE } from "@/const";
-import { LogOut, Plus, DollarSign, Ticket as TicketIcon, TrendingUp } from "lucide-react";
+import { APP_TITLE, APP_LOGO } from "@/const";
+import { LogOut, Plus, DollarSign, Ticket as TicketIcon, TrendingUp, Search, Edit, Trash2, Download, Upload } from "lucide-react";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { toast } from "sonner";
 
@@ -23,6 +23,10 @@ export default function StaffDashboard() {
 
   const [incomeDialogOpen, setIncomeDialogOpen] = useState(false);
   const [ticketDialogOpen, setTicketDialogOpen] = useState(false);
+  const [editIncomeId, setEditIncomeId] = useState<number | null>(null);
+  const [editTicketId, setEditTicketId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [ticketFile, setTicketFile] = useState<File | null>(null);
 
   const { data: incomeEntries = [], isLoading: loadingIncome } = trpc.income.getMy.useQuery();
   const { data: ticketEntries = [], isLoading: loadingTickets } = trpc.ticket.getMy.useQuery();
@@ -33,19 +37,67 @@ export default function StaffDashboard() {
       toast.success('Income entry added successfully');
       setIncomeDialogOpen(false);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast.error(error.message || 'Failed to add income entry');
     },
   });
+
+  const updateIncomeMutation = trpc.income.update.useMutation({
+    onSuccess: () => {
+      utils.income.getMy.invalidate();
+      toast.success('Income entry updated successfully');
+      setIncomeDialogOpen(false);
+      setEditIncomeId(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update income entry');
+    },
+  });
+
+  const deleteIncomeMutation = trpc.income.delete.useMutation({
+    onSuccess: () => {
+      utils.income.getMy.invalidate();
+      toast.success('Income entry deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete income entry');
+    },
+  });
+
+  const uploadTicketCopyMutation = trpc.ticket.uploadTicketCopy.useMutation();
 
   const createTicketMutation = trpc.ticket.create.useMutation({
     onSuccess: () => {
       utils.ticket.getMy.invalidate();
       toast.success('Ticket entry added successfully');
       setTicketDialogOpen(false);
+      setTicketFile(null);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast.error(error.message || 'Failed to add ticket entry');
+    },
+  });
+
+  const updateTicketMutation = trpc.ticket.update.useMutation({
+    onSuccess: () => {
+      utils.ticket.getMy.invalidate();
+      toast.success('Ticket entry updated successfully');
+      setTicketDialogOpen(false);
+      setEditTicketId(null);
+      setTicketFile(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update ticket entry');
+    },
+  });
+
+  const deleteTicketMutation = trpc.ticket.delete.useMutation({
+    onSuccess: () => {
+      utils.ticket.getMy.invalidate();
+      toast.success('Ticket entry deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete ticket entry');
     },
   });
 
@@ -58,25 +110,75 @@ export default function StaffDashboard() {
     }
   };
 
-  const handleIncomeSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setTicketFile(e.target.files[0]);
+    }
+  };
+
+  const uploadFile = async (): Promise<{ url: string; fileName: string } | null> => {
+    if (!ticketFile) return null;
+
+    try {
+      const reader = new FileReader();
+      const fileData = await new Promise<string>((resolve) => {
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve(base64);
+        };
+        reader.readAsDataURL(ticketFile);
+      });
+
+      const result = await uploadTicketCopyMutation.mutateAsync({
+        fileName: ticketFile.name,
+        fileData,
+        mimeType: ticketFile.type,
+      });
+
+      return result;
+    } catch (error) {
+      toast.error('Failed to upload file');
+      return null;
+    }
+  };
+
+  const handleIncomeSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
-    createIncomeMutation.mutate({
+    const data = {
       date: formData.get('date') as string,
       time: formData.get('time') as string,
       type: formData.get('type') as any,
       amount: Number(formData.get('amount')),
       description: formData.get('description') as string,
       recipient: formData.get('recipient') as string || undefined,
-    });
+      receivedFrom: formData.get('receivedFrom') as string || undefined,
+    };
+
+    if (editIncomeId) {
+      updateIncomeMutation.mutate({ id: editIncomeId, ...data });
+    } else {
+      createIncomeMutation.mutate(data);
+    }
   };
 
-  const handleTicketSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleTicketSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     
-    createTicketMutation.mutate({
+    let ticketCopyUrl: string | undefined;
+    let ticketCopyFileName: string | undefined;
+
+    if (ticketFile) {
+      const uploadResult = await uploadFile();
+      if (uploadResult) {
+        ticketCopyUrl = uploadResult.url;
+        ticketCopyFileName = uploadResult.fileName;
+      }
+    }
+
+    const data = {
       issueDate: formData.get('issueDate') as string,
       passengerName: formData.get('passengerName') as string,
       pnr: formData.get('pnr') as string,
@@ -88,28 +190,77 @@ export default function StaffDashboard() {
       arrivalDate: formData.get('arrivalDate') as string,
       returnDate: formData.get('returnDate') as string || undefined,
       fromIssuer: formData.get('fromIssuer') as string,
+      source: formData.get('source') as string || undefined,
       bdNumber: formData.get('bdNumber') as string || undefined,
       qrNumber: formData.get('qrNumber') as string || undefined,
-    });
+      ticketCopyUrl,
+      ticketCopyFileName,
+      status: formData.get('status') as any || 'Pending',
+    };
+
+    if (editTicketId) {
+      updateTicketMutation.mutate({ id: editTicketId, ...data });
+    } else {
+      createTicketMutation.mutate(data);
+    }
+  };
+
+  const handleEditIncome = (entry: any) => {
+    setEditIncomeId(entry.id);
+    setIncomeDialogOpen(true);
+  };
+
+  const handleEditTicket = (entry: any) => {
+    setEditTicketId(entry.id);
+    setTicketDialogOpen(true);
+  };
+
+  const handleDeleteIncome = (id: number) => {
+    if (confirm('Are you sure you want to delete this income entry?')) {
+      deleteIncomeMutation.mutate({ id });
+    }
+  };
+
+  const handleDeleteTicket = (id: number) => {
+    if (confirm('Are you sure you want to delete this ticket entry?')) {
+      deleteTicketMutation.mutate({ id });
+    }
+  };
+
+  const handlePNRClick = (pnr: string, flightName: string) => {
+    const airline = flightName.toLowerCase();
+    let url = '';
+
+    if (airline.includes('qatar')) {
+      url = `https://www.qatarairways.com/en/manage-booking.html?pnr=${pnr}`;
+    } else if (airline.includes('emirates')) {
+      url = `https://www.emirates.com/english/manage-booking/retrieve-booking.aspx?pnr=${pnr}`;
+    } else if (airline.includes('etihad')) {
+      url = `https://www.etihad.com/en/manage/retrieve-booking?pnr=${pnr}`;
+    } else {
+      url = `https://www.google.com/search?q=${encodeURIComponent(flightName + ' manage booking ' + pnr)}`;
+    }
+
+    window.open(url, '_blank');
   };
 
   // Calculate statistics
   const stats = useMemo(() => {
     const incomeAdd = incomeEntries
-      .filter(e => e.type === 'Income Add')
-      .reduce((sum, e) => sum + e.amount, 0);
+      .filter((e: any) => e.type === 'Income Add')
+      .reduce((sum: number, e: any) => sum + e.amount, 0);
     
     const incomeMinus = incomeEntries
-      .filter(e => e.type === 'Income Minus')
-      .reduce((sum, e) => sum + e.amount, 0);
+      .filter((e: any) => e.type === 'Income Minus' || e.type === 'Income Payment')
+      .reduce((sum: number, e: any) => sum + e.amount, 0);
     
     const otpAdd = incomeEntries
-      .filter(e => e.type === 'OTP Add')
-      .reduce((sum, e) => sum + e.amount, 0);
+      .filter((e: any) => e.type === 'OTP Add')
+      .reduce((sum: number, e: any) => sum + e.amount, 0);
     
     const otpMinus = incomeEntries
-      .filter(e => e.type === 'OTP Minus')
-      .reduce((sum, e) => sum + e.amount, 0);
+      .filter((e: any) => e.type === 'OTP Minus' || e.type === 'OTP Payment')
+      .reduce((sum: number, e: any) => sum + e.amount, 0);
 
     return {
       totalIncome: incomeAdd - incomeMinus,
@@ -118,325 +269,548 @@ export default function StaffDashboard() {
     };
   }, [incomeEntries, ticketEntries]);
 
-  const today = new Date().toISOString().split('T')[0];
-  const now = new Date().toTimeString().split(' ')[0].substring(0, 5);
+  // Filter tickets by search query
+  const filteredTickets = useMemo(() => {
+    if (!searchQuery.trim()) return ticketEntries;
+    
+    const query = searchQuery.toLowerCase();
+    return ticketEntries.filter((ticket: any) =>
+      ticket.passengerName.toLowerCase().includes(query) ||
+      ticket.pnr.toLowerCase().includes(query)
+    );
+  }, [ticketEntries, searchQuery]);
+
+  const editingIncome = editIncomeId ? incomeEntries.find((e: any) => e.id === editIncomeId) : null;
+  const editingTicket = editTicketId ? ticketEntries.find((e: any) => e.id === editTicketId) : null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-primary">{APP_TITLE}</h1>
-            <p className="text-sm text-gray-600">Staff Dashboard</p>
+      <header className="border-b border-slate-700 bg-slate-900/50 backdrop-blur-sm">
+        <div className="container mx-auto flex items-center justify-between py-4">
+          <div className="flex items-center gap-3">
+            <img src={APP_LOGO} alt="Logo" className="h-12 w-12" />
+            <div>
+              <h1 className="text-xl font-bold text-white">AMIN TOUCH TRADING CONTRACTING & HOSPITALITY SERVICES</h1>
+              <p className="text-sm text-slate-400">Staff Dashboard</p>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="font-medium">{user?.name}</p>
-              <p className="text-xs text-gray-600">Staff Member</p>
+              <p className="text-sm font-medium text-white">{user?.name}</p>
+              <p className="text-xs text-slate-400">Staff Member</p>
             </div>
             <ChangePasswordModal />
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
+            <Button onClick={handleLogout} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-800">
+              <LogOut className="mr-2 h-4 w-4" />
               Logout
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto py-8">
         {/* Statistics Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">My Income</CardTitle>
-              <DollarSign className="h-5 w-5 text-green-600" />
+        <div className="mb-8 grid gap-6 md:grid-cols-3">
+          <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-300">My Income</CardTitle>
+              <DollarSign className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">QR {stats.totalIncome.toLocaleString()}</div>
-              <p className="text-xs text-gray-500 mt-1">Net income balance</p>
+              <div className="text-2xl font-bold text-white">QR {stats.totalIncome.toFixed(2)}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">My OTP</CardTitle>
-              <TrendingUp className="h-5 w-5 text-blue-600" />
+          <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-300">My OTP</CardTitle>
+              <TrendingUp className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">QR {stats.totalOTP.toLocaleString()}</div>
-              <p className="text-xs text-gray-500 mt-1">Net OTP balance</p>
+              <div className="text-2xl font-bold text-white">QR {stats.totalOTP.toFixed(2)}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">My Tickets</CardTitle>
-              <TicketIcon className="h-5 w-5 text-purple-600" />
+          <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-300">My Tickets</CardTitle>
+              <TicketIcon className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{stats.totalTickets}</div>
-              <p className="text-xs text-gray-500 mt-1">Tickets issued</p>
+              <div className="text-2xl font-bold text-white">{stats.totalTickets}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-4 mb-8">
-          <Dialog open={incomeDialogOpen} onOpenChange={setIncomeDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Income Entry
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add Income Entry</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleIncomeSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="date">Date</Label>
-                    <Input id="date" name="date" type="date" defaultValue={today} required />
-                  </div>
-                  <div>
-                    <Label htmlFor="time">Time</Label>
-                    <Input id="time" name="time" type="time" defaultValue={now} required />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="type">Type</Label>
-                  <Select name="type" required>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Income Add">Income Add</SelectItem>
-                      <SelectItem value="Income Minus">Income Minus</SelectItem>
-                      <SelectItem value="Income Payment">Income Payment</SelectItem>
-                      <SelectItem value="OTP Add">OTP Add</SelectItem>
-                      <SelectItem value="OTP Minus">OTP Minus</SelectItem>
-                      <SelectItem value="OTP Payment">OTP Payment</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input id="amount" name="amount" type="number" min="0" required />
-                </div>
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea id="description" name="description" required />
-                </div>
-                <div>
-                  <Label htmlFor="recipient">Recipient (Optional)</Label>
-                  <Input id="recipient" name="recipient" />
-                </div>
-                <Button type="submit" className="w-full" disabled={createIncomeMutation.isPending}>
-                  {createIncomeMutation.isPending ? 'Adding...' : 'Add Entry'}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={ticketDialogOpen} onOpenChange={setTicketDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Ticket Entry
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add Ticket Entry</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleTicketSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="issueDate">Issue Date</Label>
-                    <Input id="issueDate" name="issueDate" type="date" defaultValue={today} required />
-                  </div>
-                  <div>
-                    <Label htmlFor="passengerName">Passenger Name</Label>
-                    <Input id="passengerName" name="passengerName" required />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="pnr">PNR</Label>
-                    <Input id="pnr" name="pnr" required />
-                  </div>
-                  <div>
-                    <Label htmlFor="tripType">Trip Type</Label>
-                    <Select name="tripType" required>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1 Way">1 Way</SelectItem>
-                        <SelectItem value="Return">Return</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="flightName">Flight Name</Label>
-                  <Input id="flightName" name="flightName" required />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="from">From</Label>
-                    <Input id="from" name="from" required />
-                  </div>
-                  <div>
-                    <Label htmlFor="to">To</Label>
-                    <Input id="to" name="to" required />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="departureDate">Departure Date</Label>
-                    <Input id="departureDate" name="departureDate" type="date" required />
-                  </div>
-                  <div>
-                    <Label htmlFor="arrivalDate">Arrival Date</Label>
-                    <Input id="arrivalDate" name="arrivalDate" type="date" required />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="returnDate">Return Date (Optional)</Label>
-                  <Input id="returnDate" name="returnDate" type="date" />
-                </div>
-                <div>
-                  <Label htmlFor="fromIssuer">From Issuer</Label>
-                  <Input id="fromIssuer" name="fromIssuer" required />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="bdNumber">BD Number (Optional)</Label>
-                    <Input id="bdNumber" name="bdNumber" />
-                  </div>
-                  <div>
-                    <Label htmlFor="qrNumber">QR Number (Optional)</Label>
-                    <Input id="qrNumber" name="qrNumber" />
-                  </div>
-                </div>
-                <Button type="submit" className="w-full" disabled={createTicketMutation.isPending}>
-                  {createTicketMutation.isPending ? 'Adding...' : 'Add Ticket'}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Data Tables */}
+        {/* Tabs */}
         <Tabs defaultValue="income" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="income">My Income Entries</TabsTrigger>
-            <TabsTrigger value="tickets">My Ticket Entries</TabsTrigger>
+          <TabsList className="bg-slate-800 border border-slate-700">
+            <TabsTrigger value="income" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-slate-300">Income/OTP</TabsTrigger>
+            <TabsTrigger value="tickets" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-slate-300">Ticket Sales</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="income">
-            <Card>
+          {/* Income Tab */}
+          <TabsContent value="income" className="space-y-4">
+            <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>Income Entries</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white">Income & OTP Entries</CardTitle>
+                  <Dialog open={incomeDialogOpen} onOpenChange={(open) => {
+                    setIncomeDialogOpen(open);
+                    if (!open) setEditIncomeId(null);
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button className="bg-green-600 hover:bg-green-700">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Entry
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-md bg-slate-800 border-slate-700 text-white">
+                      <DialogHeader>
+                        <DialogTitle>{editIncomeId ? 'Edit' : 'Add'} Income Entry</DialogTitle>
+                      </DialogHeader>
+                      <form onSubmit={handleIncomeSubmit} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="date" className="text-slate-300">Date</Label>
+                            <Input
+                              id="date"
+                              name="date"
+                              type="date"
+                              defaultValue={editingIncome?.date || new Date().toISOString().split('T')[0]}
+                              required
+                              className="bg-slate-700 border-slate-600 text-white"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="time" className="text-slate-300">Time</Label>
+                            <Input
+                              id="time"
+                              name="time"
+                              type="time"
+                              defaultValue={editingIncome?.time || new Date().toLocaleTimeString('en-GB', { hour12: false })}
+                              required
+                              className="bg-slate-700 border-slate-600 text-white"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="type" className="text-slate-300">Type</Label>
+                          <Select name="type" defaultValue={editingIncome?.type || "Income Add"} required>
+                            <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-700 border-slate-600">
+                              <SelectItem value="Income Add">Income Add</SelectItem>
+                              <SelectItem value="Income Minus">Income Minus</SelectItem>
+                              <SelectItem value="Income Payment">Income Payment</SelectItem>
+                              <SelectItem value="OTP Add">OTP Add</SelectItem>
+                              <SelectItem value="OTP Minus">OTP Minus</SelectItem>
+                              <SelectItem value="OTP Payment">OTP Payment</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="amount" className="text-slate-300">Amount (QR)</Label>
+                          <Input
+                            id="amount"
+                            name="amount"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            defaultValue={editingIncome?.amount || ''}
+                            required
+                            className="bg-slate-700 border-slate-600 text-white"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="description" className="text-slate-300">Description</Label>
+                          <Textarea
+                            id="description"
+                            name="description"
+                            defaultValue={editingIncome?.description || ''}
+                            required
+                            className="bg-slate-700 border-slate-600 text-white"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="recipient" className="text-slate-300">Recipient (Optional)</Label>
+                          <Input
+                            id="recipient"
+                            name="recipient"
+                            defaultValue={editingIncome?.recipient || ''}
+                            className="bg-slate-700 border-slate-600 text-white"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="receivedFrom" className="text-slate-300">Received From (Optional)</Label>
+                          <Input
+                            id="receivedFrom"
+                            name="receivedFrom"
+                            defaultValue={editingIncome?.receivedFrom || ''}
+                            placeholder="Who gave you this money?"
+                            className="bg-slate-700 border-slate-600 text-white"
+                          />
+                        </div>
+
+                        <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={createIncomeMutation.isPending || updateIncomeMutation.isPending}>
+                          {editIncomeId ? 'Update' : 'Add'} Entry
+                        </Button>
+                      </form>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </CardHeader>
               <CardContent>
-                {loadingIncome ? (
-                  <div className="text-center py-8">Loading...</div>
-                ) : incomeEntries.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">No income entries found</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Time</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Recipient</TableHead>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-slate-700 hover:bg-slate-700/50">
+                      <TableHead className="text-slate-300">Date</TableHead>
+                      <TableHead className="text-slate-300">Time</TableHead>
+                      <TableHead className="text-slate-300">Type</TableHead>
+                      <TableHead className="text-slate-300">Amount</TableHead>
+                      <TableHead className="text-slate-300">Description</TableHead>
+                      <TableHead className="text-slate-300">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loadingIncome ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-slate-400">Loading...</TableCell>
+                      </TableRow>
+                    ) : incomeEntries.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-slate-400">No entries found</TableCell>
+                      </TableRow>
+                    ) : (
+                      incomeEntries.map((entry: any) => (
+                        <TableRow key={entry.id} className="border-slate-700 hover:bg-slate-700/50">
+                          <TableCell className="text-slate-200">{entry.date}</TableCell>
+                          <TableCell className="text-slate-200">{entry.time}</TableCell>
+                          <TableCell>
+                            <Badge variant={entry.type.includes('Add') ? 'default' : 'destructive'} className="bg-slate-700 text-white">
+                              {entry.type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-slate-200">QR {entry.amount}</TableCell>
+                          <TableCell className="text-slate-200">{entry.description}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" onClick={() => handleEditIncome(entry)} className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => handleDeleteIncome(entry.id)} className="border-red-600 text-red-400 hover:bg-red-900/20">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {incomeEntries.map((entry) => (
-                          <TableRow key={entry.id}>
-                            <TableCell>{entry.date}</TableCell>
-                            <TableCell>{entry.time}</TableCell>
-                            <TableCell>
-                              <Badge variant={entry.type.includes('Add') ? 'default' : 'secondary'}>
-                                {entry.type}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className={entry.type.includes('Add') ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                              {entry.type.includes('Add') ? '+' : '-'}QR {entry.amount.toLocaleString()}
-                            </TableCell>
-                            <TableCell className="max-w-xs truncate">{entry.description}</TableCell>
-                            <TableCell>{entry.recipient || '-'}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="tickets">
-            <Card>
+          {/* Tickets Tab */}
+          <TabsContent value="tickets" className="space-y-4">
+            <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>Ticket Entries</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white">Ticket Entries</CardTitle>
+                  <div className="flex gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        placeholder="Search by name or PNR..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 bg-slate-700 border-slate-600 text-white w-64"
+                      />
+                    </div>
+                    <Dialog open={ticketDialogOpen} onOpenChange={(open) => {
+                      setTicketDialogOpen(open);
+                      if (!open) {
+                        setEditTicketId(null);
+                        setTicketFile(null);
+                      }
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button className="bg-purple-600 hover:bg-purple-700">
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Ticket
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-800 border-slate-700 text-white">
+                        <DialogHeader>
+                          <DialogTitle>{editTicketId ? 'Edit' : 'Add'} Ticket Entry</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={handleTicketSubmit} className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="issueDate" className="text-slate-300">Issue Date</Label>
+                              <Input
+                                id="issueDate"
+                                name="issueDate"
+                                type="date"
+                                defaultValue={editingTicket?.issueDate || new Date().toISOString().split('T')[0]}
+                                required
+                                className="bg-slate-700 border-slate-600 text-white"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="passengerName" className="text-slate-300">Passenger Name</Label>
+                              <Input
+                                id="passengerName"
+                                name="passengerName"
+                                defaultValue={editingTicket?.passengerName || ''}
+                                required
+                                className="bg-slate-700 border-slate-600 text-white"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="pnr" className="text-slate-300">PNR</Label>
+                              <Input
+                                id="pnr"
+                                name="pnr"
+                                defaultValue={editingTicket?.pnr || ''}
+                                required
+                                className="bg-slate-700 border-slate-600 text-white"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="tripType" className="text-slate-300">Trip Type</Label>
+                              <Select name="tripType" defaultValue={editingTicket?.tripType || "1 Way"} required>
+                                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-slate-700 border-slate-600">
+                                  <SelectItem value="1 Way">1 Way</SelectItem>
+                                  <SelectItem value="Return">Return</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label htmlFor="flightName" className="text-slate-300">Flight Name</Label>
+                            <Input
+                              id="flightName"
+                              name="flightName"
+                              defaultValue={editingTicket?.flightName || ''}
+                              required
+                              className="bg-slate-700 border-slate-600 text-white"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="from" className="text-slate-300">From</Label>
+                              <Input
+                                id="from"
+                                name="from"
+                                defaultValue={editingTicket?.from || ''}
+                                required
+                                className="bg-slate-700 border-slate-600 text-white"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="to" className="text-slate-300">To</Label>
+                              <Input
+                                id="to"
+                                name="to"
+                                defaultValue={editingTicket?.to || ''}
+                                required
+                                className="bg-slate-700 border-slate-600 text-white"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="departureDate" className="text-slate-300">Departure Date</Label>
+                              <Input
+                                id="departureDate"
+                                name="departureDate"
+                                type="date"
+                                defaultValue={editingTicket?.departureDate || ''}
+                                required
+                                className="bg-slate-700 border-slate-600 text-white"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="arrivalDate" className="text-slate-300">Arrival Date</Label>
+                              <Input
+                                id="arrivalDate"
+                                name="arrivalDate"
+                                type="date"
+                                defaultValue={editingTicket?.arrivalDate || ''}
+                                required
+                                className="bg-slate-700 border-slate-600 text-white"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label htmlFor="returnDate" className="text-slate-300">Return Date (Optional)</Label>
+                            <Input
+                              id="returnDate"
+                              name="returnDate"
+                              type="date"
+                              defaultValue={editingTicket?.returnDate || ''}
+                              className="bg-slate-700 border-slate-600 text-white"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="fromIssuer" className="text-slate-300">From Issuer</Label>
+                              <Input
+                                id="fromIssuer"
+                                name="fromIssuer"
+                                defaultValue={editingTicket?.fromIssuer || ''}
+                                required
+                                className="bg-slate-700 border-slate-600 text-white"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="source" className="text-slate-300">Source (Agency)</Label>
+                              <Input
+                                id="source"
+                                name="source"
+                                defaultValue={editingTicket?.source || ''}
+                                placeholder="Where did you purchase this ticket?"
+                                className="bg-slate-700 border-slate-600 text-white"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="bdNumber" className="text-slate-300">BD Number (Optional)</Label>
+                              <Input
+                                id="bdNumber"
+                                name="bdNumber"
+                                defaultValue={editingTicket?.bdNumber || ''}
+                                className="bg-slate-700 border-slate-600 text-white"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="qrNumber" className="text-slate-300">QR Number (Optional)</Label>
+                              <Input
+                                id="qrNumber"
+                                name="qrNumber"
+                                defaultValue={editingTicket?.qrNumber || ''}
+                                className="bg-slate-700 border-slate-600 text-white"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label htmlFor="ticketFile" className="text-slate-300">Ticket Copy (PDF/PNG/Image)</Label>
+                            <Input
+                              id="ticketFile"
+                              type="file"
+                              accept=".pdf,.png,.jpg,.jpeg"
+                              onChange={handleFileChange}
+                              className="bg-slate-700 border-slate-600 text-white"
+                            />
+                            {ticketFile && (
+                              <p className="mt-2 text-sm text-green-400">Selected: {ticketFile.name}</p>
+                            )}
+                            {editingTicket?.ticketCopyFileName && !ticketFile && (
+                              <p className="mt-2 text-sm text-slate-400">Current: {editingTicket.ticketCopyFileName}</p>
+                            )}
+                          </div>
+
+                          <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={createTicketMutation.isPending || updateTicketMutation.isPending}>
+                            {editTicketId ? 'Update' : 'Add'} Ticket
+                          </Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                {loadingTickets ? (
-                  <div className="text-center py-8">Loading...</div>
-                ) : ticketEntries.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">No ticket entries found</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-slate-700 hover:bg-slate-700/50">
+                        <TableHead className="text-slate-300">Date</TableHead>
+                        <TableHead className="text-slate-300">Passenger</TableHead>
+                        <TableHead className="text-slate-300">PNR</TableHead>
+                        <TableHead className="text-slate-300">Flight</TableHead>
+                        <TableHead className="text-slate-300">Route</TableHead>
+                        <TableHead className="text-slate-300">Source</TableHead>
+                        <TableHead className="text-slate-300">Ticket Copy</TableHead>
+                        <TableHead className="text-slate-300">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingTickets ? (
                         <TableRow>
-                          <TableHead>Issue Date</TableHead>
-                          <TableHead>Passenger</TableHead>
-                          <TableHead>PNR</TableHead>
-                          <TableHead>Flight</TableHead>
-                          <TableHead>Route</TableHead>
-                          <TableHead>Trip Type</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableCell colSpan={8} className="text-center text-slate-400">Loading...</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ticketEntries.map((entry) => (
-                          <TableRow key={entry.id}>
-                            <TableCell>{entry.issueDate}</TableCell>
-                            <TableCell>{entry.passengerName}</TableCell>
-                            <TableCell className="font-mono text-sm">{entry.pnr}</TableCell>
-                            <TableCell>{entry.flightName}</TableCell>
-                            <TableCell>{entry.from} → {entry.to}</TableCell>
+                      ) : filteredTickets.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-slate-400">
+                            {searchQuery ? 'No tickets found matching your search' : 'No tickets found'}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredTickets.map((ticket: any) => (
+                          <TableRow key={ticket.id} className="border-slate-700 hover:bg-slate-700/50">
+                            <TableCell className="text-slate-200">{ticket.issueDate}</TableCell>
+                            <TableCell className="text-slate-200">{ticket.passengerName}</TableCell>
                             <TableCell>
-                              <Badge variant="outline">{entry.tripType}</Badge>
+                              <button
+                                onClick={() => handlePNRClick(ticket.pnr, ticket.flightName)}
+                                className="text-blue-400 hover:text-blue-300 underline cursor-pointer"
+                              >
+                                {ticket.pnr}
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-slate-200">{ticket.flightName}</TableCell>
+                            <TableCell className="text-slate-200">{ticket.from} → {ticket.to}</TableCell>
+                            <TableCell className="text-slate-200">{ticket.source || '-'}</TableCell>
+                            <TableCell>
+                              {ticket.ticketCopyUrl ? (
+                                <a href={ticket.ticketCopyUrl} target="_blank" rel="noopener noreferrer">
+                                  <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </a>
+                              ) : (
+                                <span className="text-slate-500">-</span>
+                              )}
                             </TableCell>
                             <TableCell>
-                              <Badge 
-                                variant={
-                                  entry.status === 'Confirmed' ? 'default' : 
-                                  entry.status === 'Pending' ? 'secondary' : 
-                                  'destructive'
-                                }
-                              >
-                                {entry.status}
-                              </Badge>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" onClick={() => handleEditTicket(ticket)} className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => handleDeleteTicket(ticket.id)} className="border-red-600 text-red-400 hover:bg-red-900/20">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

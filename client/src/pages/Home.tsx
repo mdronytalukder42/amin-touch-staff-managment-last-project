@@ -1,116 +1,110 @@
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { APP_LOGO, APP_TITLE } from "@/const";
-import { Check } from "lucide-react";
+import { APP_LOGO } from "@/const";
+import { ArrowRight } from "lucide-react";
+
+const backgroundImages = [
+  "/bg1.jpg",
+  "/bg2.jpg",
+  "/bg3.jpg",
+];
 
 export default function Home() {
   const [, setLocation] = useLocation();
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
 
-  const handleLoginClick = () => {
-    setLocation("/login");
-  };
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % backgroundImages.length);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center relative"
-      style={{
-        backgroundImage: 'url(/background.jpg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
-    >
-      {/* Overlay for opacity */}
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-900/80 via-slate-900/70 to-slate-900/80"></div>
+    <div className="relative min-h-screen overflow-hidden bg-slate-900">
+      {/* Animated Background Slideshow */}
+      <div className="absolute inset-0 z-0">
+        {backgroundImages.map((img, index) => (
+          <div
+            key={img}
+            className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${
+              index === currentBgIndex ? 'opacity-20' : 'opacity-0'
+            }`}
+            style={{
+              backgroundImage: `url(${img})`,
+            }}
+          />
+        ))}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-slate-800/80 to-slate-900/80" />
+      </div>
 
       {/* Content */}
-      <div className="relative z-10 w-full max-w-5xl px-4 py-12">
-        <div className="text-center mb-12">
-          <div className="flex justify-center mb-6">
-            <img src={APP_LOGO} alt="Logo" className="h-32 w-32 object-contain drop-shadow-2xl" />
+      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4">
+        <div className="text-center space-y-8 max-w-4xl">
+          {/* Logo */}
+          <div className="flex justify-center mb-8">
+            <img 
+              src={APP_LOGO} 
+              alt="AMIN TOUCH Logo" 
+              className="h-32 w-32 drop-shadow-2xl animate-pulse"
+            />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            {APP_TITLE}
-          </h1>
-          <p className="text-xl text-gray-200 mb-2">
+
+          {/* Company Name */}
+          <div className="space-y-4">
+            <h1 className="text-5xl md:text-7xl font-bold text-white drop-shadow-lg">
+              AMIN TOUCH
+            </h1>
+            <h2 className="text-2xl md:text-3xl font-semibold text-slate-300 drop-shadow-md">
+              TRADING CONTRACTING & HOSPITALITY SERVICES
+            </h2>
+          </div>
+
+          {/* Subtitle */}
+          <p className="text-xl md:text-2xl text-slate-400 max-w-2xl mx-auto">
             Staff Management & Income Tracking System
           </p>
-          <p className="text-gray-300 max-w-2xl mx-auto">
-            A comprehensive system for managing staff data, tracking daily income, and monitoring OTP transactions.
-          </p>
-        </div>
 
-        <div className="flex justify-center mb-12">
-          <Button 
-            size="lg" 
-            className="text-lg px-8 py-6 shadow-2xl hover:scale-105 transition-transform"
-            onClick={handleLoginClick}
-          >
-            Login to System
-          </Button>
-        </div>
+          {/* Login Button */}
+          <div className="pt-8">
+            <Button
+              onClick={() => setLocation('/login')}
+              size="lg"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold px-12 py-6 text-lg rounded-full shadow-2xl transform transition-all hover:scale-105"
+            >
+              Login to System
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </div>
 
-        <div className="grid md:grid-cols-2 gap-6 mt-12">
-          <Card className="bg-white/95 backdrop-blur border-2 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-red-600">Admin Features</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                <span>View all staff data and transactions</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                <span>Monitor daily income & OTP system</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                <span>Filter by month and staff member</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                <span>View comprehensive summary reports</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
-                <span>Manage system and staff accounts</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/95 backdrop-blur border-2 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-blue-600">Staff Features</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <span>Enter daily income data</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <span>Record OTP transactions</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <span>Auto-calculated totals</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <span>View personal monthly statistics</span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <span>Manage personal account settings</span>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Features */}
+          <div className="pt-12 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-6 text-center">
+              <div className="text-3xl mb-2">💰</div>
+              <h3 className="text-white font-semibold mb-2">Income Tracking</h3>
+              <p className="text-slate-400 text-sm">Track daily income and OTP payments</p>
+            </div>
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-6 text-center">
+              <div className="text-3xl mb-2">✈️</div>
+              <h3 className="text-white font-semibold mb-2">Ticket Management</h3>
+              <p className="text-slate-400 text-sm">Manage flight tickets and bookings</p>
+            </div>
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-lg p-6 text-center">
+              <div className="text-3xl mb-2">👥</div>
+              <h3 className="text-white font-semibold mb-2">Staff Dashboard</h3>
+              <p className="text-slate-400 text-sm">Individual dashboards for each staff</p>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <div className="text-center mt-12 text-gray-300 text-sm">
-          <p>© 2025 AMIN TOUCH. All rights reserved.</p>
-        </div>
+      {/* Footer */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 py-6 text-center">
+        <p className="text-slate-500 text-sm">
+          © {new Date().getFullYear()} AMIN TOUCH. All rights reserved.
+        </p>
       </div>
     </div>
   );

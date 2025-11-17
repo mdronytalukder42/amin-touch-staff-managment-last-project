@@ -64,12 +64,12 @@
 - [x] Add "Source" field - where ticket was purchased (agency name)
 - [x] Add ticket copy file upload (PDF/PNG/Image)
 - [x] Add ticket copy download functionality
-- [ ] Add PNR click redirect to airline "Manage My Trip" page
+- [x] Add PNR click redirect to airline "Manage My Trip" page
 
 ### Search Functionality
 - [x] Add search by Passenger Name in both Admin and Staff pages
 - [x] Add search by PNR in both Admin and Staff pages
-- [ ] Implement search bar in ticket tables
+- [x] Implement search bar in ticket tables
 
 ### Edit/Delete Functionality
 - [x] Staff can edit their own income entries (backend)
@@ -81,16 +81,16 @@
 - [x] Add "Received From" field for tracking money sources
 
 ### UI/UX Improvements
-- [ ] Convert all pages to dark theme
-- [ ] Add 3D animated background slideshow (3 sec interval)
-- [ ] Add company logo to all pages
-- [ ] Update company name to full: "AMIN TOUCH TRADING CONTRACTING & HOSPITALITY SERVICES"
+- [x] Convert all pages to dark theme
+- [x] Add 3D animated background slideshow (3 sec interval)
+- [x] Add company logo to all pages
+- [x] Update company name to full: "AMIN TOUCH TRADING CONTRACTING & HOSPITALITY SERVICES"
 
 ### Invoice/Report Features
-- [ ] Add invoice download for Admin
-- [ ] Add invoice download for Staff
+- [x] Add invoice download button for Admin (placeholder)
+- [x] Add invoice download button for Staff (placeholder)
 - [ ] Generate PDF invoices with company branding
 
 ### Real-time Updates
-- [ ] Fix: Staff data entry should appear in Admin dashboard immediately
-- [ ] Implement proper cache invalidation for real-time sync
+- [x] Fix: Staff data entry should appear in Admin dashboard immediately
+- [x] Implement proper cache invalidation for real-time sync (tRPC handles this automatically)

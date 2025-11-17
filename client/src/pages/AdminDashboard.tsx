@@ -6,27 +6,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { APP_TITLE } from "@/const";
-import { LogOut, DollarSign, Ticket, Users, TrendingUp, TrendingDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { APP_TITLE, APP_LOGO } from "@/const";
+import { LogOut, DollarSign, Ticket, Users, TrendingUp, Search, Download } from "lucide-react";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { toast } from "sonner";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
   const logoutMutation = trpc.auth.logout.useMutation();
-  const [dateRange] = useState({ start: '', end: '' });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStaff, setSelectedStaff] = useState<string>("all");
+  const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
+  const [selectedMonth, setSelectedMonth] = useState<string>("all");
 
-  const { data: incomeEntries = [], isLoading: loadingIncome } = trpc.income.list.useQuery({
-    startDate: dateRange.start || undefined,
-    endDate: dateRange.end || undefined,
-  });
-
-  const { data: ticketEntries = [], isLoading: loadingTickets } = trpc.ticket.list.useQuery({
-    startDate: dateRange.start || undefined,
-    endDate: dateRange.end || undefined,
-  });
-
-  const { data: users = [] } = trpc.users.list.useQuery();
+  const { data: incomeEntries = [], isLoading: loadingIncome } = trpc.income.getAll.useQuery();
+  const { data: ticketEntries = [], isLoading: loadingTickets } = trpc.ticket.getAll.useQuery();
 
   const handleLogout = async () => {
     try {
@@ -37,260 +33,367 @@ export default function AdminDashboard() {
     }
   };
 
+  const handlePNRClick = (pnr: string, flightName: string) => {
+    const airline = flightName.toLowerCase();
+    let url = '';
+
+    if (airline.includes('qatar')) {
+      url = `https://www.qatarairways.com/en/manage-booking.html?pnr=${pnr}`;
+    } else if (airline.includes('emirates')) {
+      url = `https://www.emirates.com/english/manage-booking/retrieve-booking.aspx?pnr=${pnr}`;
+    } else if (airline.includes('etihad')) {
+      url = `https://www.etihad.com/en/manage/retrieve-booking?pnr=${pnr}`;
+    } else {
+      url = `https://www.google.com/search?q=${encodeURIComponent(flightName + ' manage booking ' + pnr)}`;
+    }
+
+    window.open(url, '_blank');
+  };
+
+  const handleDownloadInvoice = () => {
+    toast.info('Invoice download feature coming soon!');
+  };
+
+  // Get unique staff names
+  const staffNames = useMemo(() => {
+    const names = new Set<string>();
+    incomeEntries.forEach((entry: any) => names.add(entry.userName));
+    ticketEntries.forEach((entry: any) => names.add(entry.userName));
+    return Array.from(names).sort();
+  }, [incomeEntries, ticketEntries]);
+
+  // Filter entries by staff, year, and month
+  const filteredIncomeEntries = useMemo(() => {
+    return incomeEntries.filter((entry: any) => {
+      if (selectedStaff !== "all" && entry.userName !== selectedStaff) return false;
+      if (selectedYear !== "all" && !entry.date.startsWith(selectedYear)) return false;
+      if (selectedMonth !== "all") {
+        const entryMonth = entry.date.split('-')[1];
+        if (entryMonth !== selectedMonth) return false;
+      }
+      return true;
+    });
+  }, [incomeEntries, selectedStaff, selectedYear, selectedMonth]);
+
+  const filteredTicketEntries = useMemo(() => {
+    let filtered = ticketEntries.filter((entry: any) => {
+      if (selectedStaff !== "all" && entry.userName !== selectedStaff) return false;
+      if (selectedYear !== "all" && !entry.issueDate.startsWith(selectedYear)) return false;
+      if (selectedMonth !== "all") {
+        const entryMonth = entry.issueDate.split('-')[1];
+        if (entryMonth !== selectedMonth) return false;
+      }
+      return true;
+    });
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((ticket: any) =>
+        ticket.passengerName.toLowerCase().includes(query) ||
+        ticket.pnr.toLowerCase().includes(query)
+      );
+    }
+
+    return filtered;
+  }, [ticketEntries, selectedStaff, selectedYear, selectedMonth, searchQuery]);
+
   // Calculate statistics
   const stats = useMemo(() => {
-    const incomeAdd = incomeEntries
-      .filter(e => e.type === 'Income Add')
-      .reduce((sum, e) => sum + e.amount, 0);
+    const incomeAdd = filteredIncomeEntries
+      .filter((e: any) => e.type === 'Income Add')
+      .reduce((sum: number, e: any) => sum + e.amount, 0);
     
-    const incomeMinus = incomeEntries
-      .filter(e => e.type === 'Income Minus')
-      .reduce((sum, e) => sum + e.amount, 0);
+    const incomeMinus = filteredIncomeEntries
+      .filter((e: any) => e.type === 'Income Minus' || e.type === 'Income Payment')
+      .reduce((sum: number, e: any) => sum + e.amount, 0);
     
-    const otpAdd = incomeEntries
-      .filter(e => e.type === 'OTP Add')
-      .reduce((sum, e) => sum + e.amount, 0);
+    const otpAdd = filteredIncomeEntries
+      .filter((e: any) => e.type === 'OTP Add')
+      .reduce((sum: number, e: any) => sum + e.amount, 0);
     
-    const otpMinus = incomeEntries
-      .filter(e => e.type === 'OTP Minus')
-      .reduce((sum, e) => sum + e.amount, 0);
-
-    const totalIncome = incomeAdd - incomeMinus;
-    const totalOTP = otpAdd - otpMinus;
+    const otpMinus = filteredIncomeEntries
+      .filter((e: any) => e.type === 'OTP Minus' || e.type === 'OTP Payment')
+      .reduce((sum: number, e: any) => sum + e.amount, 0);
 
     return {
-      totalIncome,
-      totalOTP,
-      totalTickets: ticketEntries.length,
-      totalStaff: users.filter(u => u.role === 'user').length,
+      totalIncome: incomeAdd - incomeMinus,
+      totalOTP: otpAdd - otpMinus,
+      totalTickets: filteredTicketEntries.length,
     };
-  }, [incomeEntries, ticketEntries, users]);
+  }, [filteredIncomeEntries, filteredTicketEntries]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-50 shadow-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-primary">{APP_TITLE}</h1>
-            <p className="text-sm text-gray-600">Admin Dashboard</p>
+      <header className="border-b border-slate-700 bg-slate-900/50 backdrop-blur-sm">
+        <div className="container mx-auto flex items-center justify-between py-4">
+          <div className="flex items-center gap-3">
+            <img src={APP_LOGO} alt="Logo" className="h-12 w-12" />
+            <div>
+              <h1 className="text-xl font-bold text-white">AMIN TOUCH TRADING CONTRACTING & HOSPITALITY SERVICES</h1>
+              <p className="text-sm text-slate-400">Admin Dashboard</p>
+            </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="font-medium">{user?.name}</p>
-              <p className="text-xs text-gray-600">Administrator</p>
+              <p className="text-sm font-medium text-white">{user?.name}</p>
+              <p className="text-xs text-slate-400">Administrator</p>
             </div>
             <ChangePasswordModal />
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
+            <Button onClick={handleLogout} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-800">
+              <LogOut className="mr-2 h-4 w-4" />
               Logout
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto py-8">
         {/* Statistics Cards */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Income</CardTitle>
-              <DollarSign className="h-5 w-5 text-green-600" />
+        <div className="mb-8 grid gap-6 md:grid-cols-3">
+          <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-300">Total Daily Income</CardTitle>
+              <DollarSign className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">QR {stats.totalIncome.toLocaleString()}</div>
-              <p className="text-xs text-gray-500 mt-1">Net income balance</p>
+              <div className="text-2xl font-bold text-white">QR {stats.totalIncome.toFixed(2)}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total OTP</CardTitle>
-              <TrendingUp className="h-5 w-5 text-blue-600" />
+          <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-300">Total OTP Cash</CardTitle>
+              <TrendingUp className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">QR {stats.totalOTP.toLocaleString()}</div>
-              <p className="text-xs text-gray-500 mt-1">Net OTP balance</p>
+              <div className="text-2xl font-bold text-white">QR {stats.totalOTP.toFixed(2)}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Tickets</CardTitle>
-              <Ticket className="h-5 w-5 text-purple-600" />
+          <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-slate-300">Total Tickets</CardTitle>
+              <Ticket className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{stats.totalTickets}</div>
-              <p className="text-xs text-gray-500 mt-1">Tickets issued</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Staff Members</CardTitle>
-              <Users className="h-5 w-5 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{stats.totalStaff}</div>
-              <p className="text-xs text-gray-500 mt-1">Active staff</p>
+              <div className="text-2xl font-bold text-white">{stats.totalTickets}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Data Tables */}
+        {/* Filters */}
+        <Card className="mb-6 border-slate-700 bg-slate-800/50 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-white">Filters</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div>
+                <label className="text-sm text-slate-300 mb-2 block">Filter by Staff</label>
+                <Select value={selectedStaff} onValueChange={setSelectedStaff}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-700 border-slate-600">
+                    <SelectItem value="all">All Staff</SelectItem>
+                    {staffNames.map((name) => (
+                      <SelectItem key={name} value={name}>{name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm text-slate-300 mb-2 block">Filter by Year</label>
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-700 border-slate-600">
+                    <SelectItem value="all">All Years</SelectItem>
+                    <SelectItem value="2025">2025</SelectItem>
+                    <SelectItem value="2024">2024</SelectItem>
+                    <SelectItem value="2023">2023</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm text-slate-300 mb-2 block">Filter by Month</label>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-700 border-slate-600">
+                    <SelectItem value="all">All Months</SelectItem>
+                    <SelectItem value="01">January</SelectItem>
+                    <SelectItem value="02">February</SelectItem>
+                    <SelectItem value="03">March</SelectItem>
+                    <SelectItem value="04">April</SelectItem>
+                    <SelectItem value="05">May</SelectItem>
+                    <SelectItem value="06">June</SelectItem>
+                    <SelectItem value="07">July</SelectItem>
+                    <SelectItem value="08">August</SelectItem>
+                    <SelectItem value="09">September</SelectItem>
+                    <SelectItem value="10">October</SelectItem>
+                    <SelectItem value="11">November</SelectItem>
+                    <SelectItem value="12">December</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm text-slate-300 mb-2 block">Actions</label>
+                <Button onClick={handleDownloadInvoice} className="w-full bg-blue-600 hover:bg-blue-700">
+                  <Download className="mr-2 h-4 w-4" />
+                  Download PDF Invoice
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tabs */}
         <Tabs defaultValue="income" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="income">Income Entries</TabsTrigger>
-            <TabsTrigger value="tickets">Ticket Entries</TabsTrigger>
-            <TabsTrigger value="staff">Staff Members</TabsTrigger>
+          <TabsList className="bg-slate-800 border border-slate-700">
+            <TabsTrigger value="income" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-slate-300">Income/OTP</TabsTrigger>
+            <TabsTrigger value="tickets" className="data-[state=active]:bg-slate-700 data-[state=active]:text-white text-slate-300">Ticket Sales</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="income">
-            <Card>
+          {/* Income Tab */}
+          <TabsContent value="income" className="space-y-4">
+            <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>Income Entries</CardTitle>
+                <CardTitle className="text-white">Income & OTP Entries</CardTitle>
               </CardHeader>
               <CardContent>
-                {loadingIncome ? (
-                  <div className="text-center py-8">Loading...</div>
-                ) : incomeEntries.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">No income entries found</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-slate-700 hover:bg-slate-700/50">
+                        <TableHead className="text-slate-300">Staff Name</TableHead>
+                        <TableHead className="text-slate-300">Date</TableHead>
+                        <TableHead className="text-slate-300">Time</TableHead>
+                        <TableHead className="text-slate-300">Type</TableHead>
+                        <TableHead className="text-slate-300">Amount</TableHead>
+                        <TableHead className="text-slate-300">Description</TableHead>
+                        <TableHead className="text-slate-300">Recipient</TableHead>
+                        <TableHead className="text-slate-300">Received From</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingIncome ? (
                         <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Time</TableHead>
-                          <TableHead>Staff</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Recipient</TableHead>
+                          <TableCell colSpan={8} className="text-center text-slate-400">Loading...</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {incomeEntries.map((entry) => (
-                          <TableRow key={entry.id}>
-                            <TableCell>{entry.date}</TableCell>
-                            <TableCell>{entry.time}</TableCell>
-                            <TableCell>{entry.userName}</TableCell>
+                      ) : filteredIncomeEntries.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-slate-400">No entries found for the selected filters</TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredIncomeEntries.map((entry: any) => (
+                          <TableRow key={entry.id} className="border-slate-700 hover:bg-slate-700/50">
+                            <TableCell className="text-slate-200 font-medium">{entry.userName}</TableCell>
+                            <TableCell className="text-slate-200">{entry.date}</TableCell>
+                            <TableCell className="text-slate-200">{entry.time}</TableCell>
                             <TableCell>
-                              <Badge variant={entry.type.includes('Add') ? 'default' : 'secondary'}>
+                              <Badge variant={entry.type.includes('Add') ? 'default' : 'destructive'} className="bg-slate-700 text-white">
                                 {entry.type}
                               </Badge>
                             </TableCell>
-                            <TableCell className={entry.type.includes('Add') ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                              {entry.type.includes('Add') ? '+' : '-'}QR {entry.amount.toLocaleString()}
-                            </TableCell>
-                            <TableCell className="max-w-xs truncate">{entry.description}</TableCell>
-                            <TableCell>{entry.recipient || '-'}</TableCell>
+                            <TableCell className="text-slate-200 font-medium">QR {entry.amount}</TableCell>
+                            <TableCell className="text-slate-200">{entry.description}</TableCell>
+                            <TableCell className="text-slate-200">{entry.recipient || '-'}</TableCell>
+                            <TableCell className="text-slate-200">{entry.receivedFrom || '-'}</TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="tickets">
-            <Card>
+          {/* Tickets Tab */}
+          <TabsContent value="tickets" className="space-y-4">
+            <Card className="border-slate-700 bg-slate-800/50 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle>Ticket Entries</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white">Ticket Entries</CardTitle>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input
+                      placeholder="Search by name or PNR..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 bg-slate-700 border-slate-600 text-white w-64"
+                    />
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
-                {loadingTickets ? (
-                  <div className="text-center py-8">Loading...</div>
-                ) : ticketEntries.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">No ticket entries found</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-slate-700 hover:bg-slate-700/50">
+                        <TableHead className="text-slate-300">Staff Name</TableHead>
+                        <TableHead className="text-slate-300">Date</TableHead>
+                        <TableHead className="text-slate-300">Passenger</TableHead>
+                        <TableHead className="text-slate-300">PNR</TableHead>
+                        <TableHead className="text-slate-300">Flight</TableHead>
+                        <TableHead className="text-slate-300">Route</TableHead>
+                        <TableHead className="text-slate-300">Source</TableHead>
+                        <TableHead className="text-slate-300">Ticket Copy</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {loadingTickets ? (
                         <TableRow>
-                          <TableHead>Issue Date</TableHead>
-                          <TableHead>Staff</TableHead>
-                          <TableHead>Passenger</TableHead>
-                          <TableHead>PNR</TableHead>
-                          <TableHead>Flight</TableHead>
-                          <TableHead>Route</TableHead>
-                          <TableHead>Trip Type</TableHead>
-                          <TableHead>Status</TableHead>
+                          <TableCell colSpan={8} className="text-center text-slate-400">Loading...</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {ticketEntries.map((entry) => (
-                          <TableRow key={entry.id}>
-                            <TableCell>{entry.issueDate}</TableCell>
-                            <TableCell>{entry.userName}</TableCell>
-                            <TableCell>{entry.passengerName}</TableCell>
-                            <TableCell className="font-mono text-sm">{entry.pnr}</TableCell>
-                            <TableCell>{entry.flightName}</TableCell>
-                            <TableCell>{entry.from} → {entry.to}</TableCell>
+                      ) : filteredTicketEntries.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-slate-400">
+                            {searchQuery ? 'No tickets found matching your search' : 'No tickets found for the selected filters'}
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredTicketEntries.map((ticket: any) => (
+                          <TableRow key={ticket.id} className="border-slate-700 hover:bg-slate-700/50">
+                            <TableCell className="text-slate-200 font-medium">{ticket.userName}</TableCell>
+                            <TableCell className="text-slate-200">{ticket.issueDate}</TableCell>
+                            <TableCell className="text-slate-200">{ticket.passengerName}</TableCell>
                             <TableCell>
-                              <Badge variant="outline">{entry.tripType}</Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge 
-                                variant={
-                                  entry.status === 'Confirmed' ? 'default' : 
-                                  entry.status === 'Pending' ? 'secondary' : 
-                                  'destructive'
-                                }
+                              <button
+                                onClick={() => handlePNRClick(ticket.pnr, ticket.flightName)}
+                                className="text-blue-400 hover:text-blue-300 underline cursor-pointer"
                               >
-                                {entry.status}
-                              </Badge>
+                                {ticket.pnr}
+                              </button>
+                            </TableCell>
+                            <TableCell className="text-slate-200">{ticket.flightName}</TableCell>
+                            <TableCell className="text-slate-200">{ticket.from} → {ticket.to}</TableCell>
+                            <TableCell className="text-slate-200">{ticket.source || '-'}</TableCell>
+                            <TableCell>
+                              {ticket.ticketCopyUrl ? (
+                                <a href={ticket.ticketCopyUrl} target="_blank" rel="noopener noreferrer">
+                                  <Button size="sm" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                                    <Download className="h-4 w-4" />
+                                  </Button>
+                                </a>
+                              ) : (
+                                <span className="text-slate-500">-</span>
+                              )}
                             </TableCell>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="staff">
-            <Card>
-              <CardHeader>
-                <CardTitle>Staff Members</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {users.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">No staff members found</div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Role</TableHead>
-                          <TableHead>Last Sign In</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {users.map((user) => (
-                          <TableRow key={user.id}>
-                            <TableCell className="font-medium">{user.name || 'N/A'}</TableCell>
-                            <TableCell>{user.email || 'N/A'}</TableCell>
-                            <TableCell>
-                              <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                                {user.role}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {user.lastSignedIn ? new Date(user.lastSignedIn).toLocaleString() : 'Never'}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
