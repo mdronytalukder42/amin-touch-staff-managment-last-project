@@ -12,6 +12,7 @@ import { APP_TITLE, APP_LOGO } from "@/const";
 import { LogOut, DollarSign, Ticket, Users, TrendingUp, Search, Download } from "lucide-react";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { toast } from "sonner";
+import { generateInvoicePDF } from "@/lib/pdfInvoice";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
@@ -50,8 +51,42 @@ export default function AdminDashboard() {
     window.open(url, '_blank');
   };
 
-  const handleDownloadInvoice = () => {
-    toast.info('Invoice download feature coming soon!');
+  const handleDownloadInvoice = async () => {
+    try {
+      const staffName = selectedStaff === 'all' ? 'All Staff' : selectedStaff;
+      const period = selectedMonth === 'all' 
+        ? `${selectedYear}` 
+        : `${selectedYear}-${selectedMonth}`;
+
+      await generateInvoicePDF({
+        staffName,
+        period,
+        incomeEntries: filteredIncomeEntries.map((entry: any) => ({
+          date: new Date(entry.date).toLocaleDateString(),
+          type: entry.type,
+          description: entry.description || '',
+          amount: entry.amount,
+        })),
+        ticketEntries: filteredTicketEntries.map((entry: any) => ({
+          date: new Date(entry.issueDate).toLocaleDateString(),
+          passengerName: entry.passengerName,
+          pnr: entry.pnr,
+          flightName: entry.flightName,
+          from: entry.from,
+          to: entry.to,
+        })),
+        totalIncome: filteredIncomeEntries.reduce((sum: number, entry: any) => 
+          sum + (entry.type === 'income' ? entry.amount : 0), 0),
+        totalOTP: filteredIncomeEntries.reduce((sum: number, entry: any) => 
+          sum + (entry.type === 'otp' ? entry.amount : 0), 0),
+        totalTickets: filteredTicketEntries.length,
+      });
+      
+      toast.success('Invoice downloaded successfully!');
+    } catch (error) {
+      console.error('Failed to generate invoice:', error);
+      toast.error('Failed to download invoice');
+    }
   };
 
   // Get unique staff names
@@ -213,9 +248,9 @@ export default function AdminDashboard() {
                   </SelectTrigger>
                   <SelectContent className="bg-slate-700 border-slate-600">
                     <SelectItem value="all">All Years</SelectItem>
-                    <SelectItem value="2025">2025</SelectItem>
-                    <SelectItem value="2024">2024</SelectItem>
-                    <SelectItem value="2023">2023</SelectItem>
+                    {Array.from({ length: 26 }, (_, i) => 2025 + i).map(year => (
+                      <SelectItem key={year} value={year.toString()}>{year}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -361,8 +396,12 @@ export default function AdminDashboard() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredTicketEntries.map((ticket: any) => (
-                          <TableRow key={ticket.id} className="border-slate-700 hover:bg-slate-700/50">
+                        filteredTicketEntries.map((ticket: any) => {
+                          const isHighlighted = searchQuery && 
+                            (ticket.passengerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                             ticket.pnr.toLowerCase().includes(searchQuery.toLowerCase()));
+                          return (
+                          <TableRow key={ticket.id} className={`border-slate-700 hover:bg-slate-700/50 transition-colors ${isHighlighted ? 'bg-yellow-900/40 border-yellow-600/50' : ''}`}>
                             <TableCell className="text-slate-200 font-medium">{ticket.userName}</TableCell>
                             <TableCell className="text-slate-200">{ticket.issueDate}</TableCell>
                             <TableCell className="text-slate-200">{ticket.passengerName}</TableCell>
@@ -389,7 +428,7 @@ export default function AdminDashboard() {
                               )}
                             </TableCell>
                           </TableRow>
-                        ))
+                        )})
                       )}
                     </TableBody>
                   </Table>

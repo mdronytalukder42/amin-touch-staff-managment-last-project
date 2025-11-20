@@ -94,3 +94,20 @@
 ### Real-time Updates
 - [x] Fix: Staff data entry should appear in Admin dashboard immediately
 - [x] Implement proper cache invalidation for real-time sync (tRPC handles this automatically)
+
+## New Bug Fixes & Feature Requests
+
+### Invoice Download Issues
+- [x] Remove "coming soon" message from invoice download button
+- [x] Install jsPDF library
+- [x] Implement actual PDF invoice generation using jsPDF
+- [x] Staff should be able to download their own invoices
+- [x] Admin should be able to download invoices for all staff
+
+### Search Improvements
+- [x] PNR search results should be highlighted in the table
+- [x] Implement visual highlight effect when search matches
+
+### UI Fixes
+- [x] Year dropdown should show 2025-2050 (not just 2025)
+- [x] Fix year range in all date filters

@@ -15,6 +15,7 @@ import { APP_TITLE, APP_LOGO } from "@/const";
 import { LogOut, Plus, DollarSign, Ticket as TicketIcon, TrendingUp, Search, Edit, Trash2, Download, Upload } from "lucide-react";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 import { toast } from "sonner";
+import { generateInvoicePDF } from "@/lib/pdfInvoice";
 
 export default function StaffDashboard() {
   const { user } = useAuth();
@@ -107,6 +108,40 @@ export default function StaffDashboard() {
       window.location.href = '/';
     } catch (error) {
       toast.error('Logout failed');
+    }
+  };
+
+  const handleDownloadInvoice = async () => {
+    try {
+      const currentYear = new Date().getFullYear();
+      const period = `${currentYear}`;
+
+      await generateInvoicePDF({
+        staffName: user?.name || 'Staff',
+        period,
+        incomeEntries: incomeEntries.map((entry: any) => ({
+          date: new Date(entry.date).toLocaleDateString(),
+          type: entry.type,
+          description: entry.description || '',
+          amount: entry.amount,
+        })),
+        ticketEntries: ticketEntries.map((entry: any) => ({
+          date: new Date(entry.issueDate).toLocaleDateString(),
+          passengerName: entry.passengerName,
+          pnr: entry.pnr,
+          flightName: entry.flightName,
+          from: entry.from,
+          to: entry.to,
+        })),
+        totalIncome: stats.totalIncome,
+        totalOTP: stats.totalOTP,
+        totalTickets: stats.totalTickets,
+      });
+      
+      toast.success('Invoice downloaded successfully!');
+    } catch (error) {
+      console.error('Failed to generate invoice:', error);
+      toast.error('Failed to download invoice');
     }
   };
 
@@ -300,6 +335,10 @@ export default function StaffDashboard() {
               <p className="text-sm font-medium text-white">{user?.name}</p>
               <p className="text-xs text-slate-400">Staff Member</p>
             </div>
+            <Button onClick={handleDownloadInvoice} variant="outline" size="sm" className="border-blue-600 text-blue-400 hover:bg-blue-900/20">
+              <Download className="mr-2 h-4 w-4" />
+              Download Invoice
+            </Button>
             <ChangePasswordModal />
             <Button onClick={handleLogout} variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-800">
               <LogOut className="mr-2 h-4 w-4" />
@@ -769,8 +808,12 @@ export default function StaffDashboard() {
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredTickets.map((ticket: any) => (
-                          <TableRow key={ticket.id} className="border-slate-700 hover:bg-slate-700/50">
+                        filteredTickets.map((ticket: any) => {
+                          const isHighlighted = searchQuery && 
+                            (ticket.passengerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                             ticket.pnr.toLowerCase().includes(searchQuery.toLowerCase()));
+                          return (
+                          <TableRow key={ticket.id} className={`border-slate-700 hover:bg-slate-700/50 transition-colors ${isHighlighted ? 'bg-yellow-900/40 border-yellow-600/50' : ''}`}>
                             <TableCell className="text-slate-200">{ticket.issueDate}</TableCell>
                             <TableCell className="text-slate-200">{ticket.passengerName}</TableCell>
                             <TableCell>
@@ -806,7 +849,7 @@ export default function StaffDashboard() {
                               </div>
                             </TableCell>
                           </TableRow>
-                        ))
+                        )})
                       )}
                     </TableBody>
                   </Table>
