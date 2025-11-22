@@ -111,3 +111,20 @@
 ### UI Fixes
 - [x] Year dropdown should show 2025-2050 (not just 2025)
 - [x] Fix year range in all date filters
+
+## UI/UX Improvements (User Request - Nov 22, 2025)
+
+### Invoice Download Button Redesign
+- [x] Make invoice download button more attractive with gradient colors
+- [x] Add shadow and hover effects to button
+- [x] Increase button size and font for better visibility
+
+### PDF Invoice Enhancements
+- [x] Add company logo watermark in center of invoice pages (10% opacity)
+- [x] Improve table styling with proper borders and lines
+- [x] Professional invoice layout with company branding
+
+### Login Page Improvements
+- [x] Add footer with technology badges (HTML5, CSS3, JavaScript, TypeScript, React 19)
+- [x] Remove demo accounts section from login page
+- [x] Clean and professional login page design

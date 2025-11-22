@@ -156,15 +156,7 @@ export default function Login() {
                   </Button>
                 </form>
 
-                <div className="mt-6 rounded-lg bg-slate-700/50 border border-slate-600 p-4">
-                  <p className="text-sm font-medium text-slate-300 mb-2">Demo Accounts:</p>
-                  <div className="space-y-1 text-xs text-slate-400">
-                    <p><span className="font-semibold text-slate-300">Admin:</span> admin9197 / Admin9197</p>
-                    <p><span className="font-semibold text-slate-300">Staff:</span> ronytalukder / @jead2016R</p>
-                    <p><span className="font-semibold text-slate-300">Staff:</span> mahir / Mahir3</p>
-                    <p><span className="font-semibold text-slate-300">Staff:</span> sakiladnan / Sakiladnan</p>
-                  </div>
-                </div>
+
               </TabsContent>
 
               <TabsContent value="staff" className="space-y-4 mt-6">
@@ -210,19 +202,58 @@ export default function Login() {
                   </Button>
                 </form>
 
-                <div className="mt-6 rounded-lg bg-slate-700/50 border border-slate-600 p-4">
-                  <p className="text-sm font-medium text-slate-300 mb-2">Demo Accounts:</p>
-                  <div className="space-y-1 text-xs text-slate-400">
-                    <p><span className="font-semibold text-slate-300">Staff:</span> ronytalukder / @jead2016R</p>
-                    <p><span className="font-semibold text-slate-300">Staff:</span> mahir / Mahir3</p>
-                    <p><span className="font-semibold text-slate-300">Staff:</span> sakiladnan / Sakiladnan</p>
-                  </div>
-                </div>
+
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
       </div>
+      
+      {/* Footer */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-purple-900 via-indigo-900 to-blue-900 border-t border-purple-700/50 py-4">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-wrap items-center justify-center gap-6 text-center">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center">
+                <span className="text-yellow-400 font-bold text-sm">HTML</span>
+              </div>
+              <span className="text-slate-300 text-sm">HTML5</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                <span className="text-blue-400 font-bold text-sm">CSS</span>
+              </div>
+              <span className="text-slate-300 text-sm">CSS3</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-yellow-300/20 flex items-center justify-center">
+                <span className="text-yellow-300 font-bold text-sm">JS</span>
+              </div>
+              <span className="text-slate-300 text-sm">JavaScript</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
+                <span className="text-cyan-400 font-bold text-sm">TS</span>
+              </div>
+              <span className="text-slate-300 text-sm">TypeScript</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-400/20 flex items-center justify-center">
+                <span className="text-blue-400 font-bold text-sm">React</span>
+              </div>
+              <span className="text-slate-300 text-sm">React 19</span>
+            </div>
+          </div>
+          
+          <div className="mt-3 text-center text-slate-400 text-xs">
+            © 2025 AMIN TOUCH. All rights reserved.
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
