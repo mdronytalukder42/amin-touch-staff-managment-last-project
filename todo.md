@@ -133,3 +133,11 @@
 - [x] Move footer from bottom to top of login page
 - [x] Update footer design to match reference image exactly
 - [x] Footer should be fixed at top with technology badges in horizontal layout
+
+### Login Page Redesign (User Request - Nov 23, 2025)
+- [x] Add decorative illustration/lamp on left side of login page
+- [x] Redesign login card with green border instead of default styling
+- [x] Change login button color to green
+- [x] Create two-column layout: left (illustration) and right (login form)
+- [x] Maintain dark theme with professional appearance
+- [x] Keep footer at top with technology badges
