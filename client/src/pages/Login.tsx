@@ -64,15 +64,51 @@ export default function Login() {
     });
   };
 
-  return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-900">
-      {/* Animated Background Slideshow */}
-      <div className="absolute inset-0 z-0">
-        {backgroundImages.map((img, index) => (
+   return (
+    <div className="relative min-h-screen bg-black overflow-hidden">
+      {/* Top Footer */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-900 via-indigo-900 to-blue-900 border-b border-purple-700/50 py-3">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-center">
+            <div className="flex items-center gap-1">
+              <span className="text-yellow-400 font-bold text-xs">HTML</span>
+              <span className="text-slate-300 text-xs">HTML5</span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <span className="text-blue-400 font-bold text-xs">CSS</span>
+              <span className="text-slate-300 text-xs">CSS3</span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <span className="text-yellow-300 font-bold text-xs">JS</span>
+              <span className="text-slate-300 text-xs">JavaScript</span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <span className="text-cyan-400 font-bold text-xs">TS</span>
+              <span className="text-slate-300 text-xs">TypeScript</span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <span className="text-blue-400 font-bold text-xs">React</span>
+              <span className="text-slate-300 text-xs">React 19</span>
+            </div>
+            
+            <div className="text-slate-400 text-xs ml-auto">
+              © 2025 AMIN TOUCH. All rights reserved.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Background slideshow */}
+      <div className="absolute inset-0 overflow-hidden">
+        {backgroundImages.map((img, idx) => (
           <div
             key={img}
             className={`absolute inset-0 bg-cover bg-center transition-opacity duration-1000 ${
-              index === currentBgIndex ? 'opacity-20' : 'opacity-0'
+              idx === currentBgIndex ? 'opacity-20' : 'opacity-0'
             }`}
             style={{
               backgroundImage: `url(${img})`,
@@ -83,7 +119,7 @@ export default function Login() {
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-12 pt-24">
         <Card className="w-full max-w-md bg-slate-800/90 backdrop-blur-md border-slate-700 shadow-2xl">
           <CardHeader className="space-y-4 text-center">
             <div className="flex justify-center">
@@ -209,51 +245,7 @@ export default function Login() {
         </Card>
       </div>
       
-      {/* Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-purple-900 via-indigo-900 to-blue-900 border-t border-purple-700/50 py-4">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-wrap items-center justify-center gap-6 text-center">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center">
-                <span className="text-yellow-400 font-bold text-sm">HTML</span>
-              </div>
-              <span className="text-slate-300 text-sm">HTML5</span>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                <span className="text-blue-400 font-bold text-sm">CSS</span>
-              </div>
-              <span className="text-slate-300 text-sm">CSS3</span>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-yellow-300/20 flex items-center justify-center">
-                <span className="text-yellow-300 font-bold text-sm">JS</span>
-              </div>
-              <span className="text-slate-300 text-sm">JavaScript</span>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
-                <span className="text-cyan-400 font-bold text-sm">TS</span>
-              </div>
-              <span className="text-slate-300 text-sm">TypeScript</span>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-400/20 flex items-center justify-center">
-                <span className="text-blue-400 font-bold text-sm">React</span>
-              </div>
-              <span className="text-slate-300 text-sm">React 19</span>
-            </div>
-          </div>
-          
-          <div className="mt-3 text-center text-slate-400 text-xs">
-            © 2025 AMIN TOUCH. All rights reserved.
-          </div>
-        </div>
-      </footer>
+
     </div>
   );
 }
